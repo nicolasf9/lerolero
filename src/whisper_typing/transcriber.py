@@ -248,10 +248,17 @@ class Transcriber:
             if lang and lang.lower() not in ("auto", "multilingual"):
                 generate_kwargs["language"] = lang
             generate_kwargs["task"] = task
-        if initial_prompt:
-            generate_kwargs["prompt"] = initial_prompt
 
-        result = self.pipe(audio_input, generate_kwargs=generate_kwargs)
+        # initial_prompt is a pipeline-level kwarg, NOT a generate kwarg
+        pipe_kwargs: dict = {"generate_kwargs": generate_kwargs}
+        if initial_prompt:
+            pipe_kwargs["initial_prompt"] = initial_prompt
+
+        try:
+            result = self.pipe(audio_input, **pipe_kwargs)
+        except (ValueError, TypeError):
+            # Fallback: some pipeline versions don't support initial_prompt
+            result = self.pipe(audio_input, generate_kwargs=generate_kwargs)
 
         if isinstance(result, list):
             return " ".join([r.get("text", "") for r in result]).strip()

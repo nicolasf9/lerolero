@@ -447,6 +447,8 @@ class WhisperAppController:
             self.log(f"Transcription error: {e}")
             logger.exception("Transcription error")
             self.set_status("Error")
+            # Auto-recover to Ready after 3 seconds
+            threading.Timer(3.0, lambda: self.set_status("Ready")).start()
         finally:
             self.is_processing = False
 
