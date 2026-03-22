@@ -59,7 +59,7 @@ amd = [
 ]
 # All GPU backends
 all = [
-  "whisper-typing[intel,nvidia,amd]",
+  "lerolero[intel,nvidia,amd]",
 ]
 
 [project.urls]
