@@ -14,7 +14,7 @@ def main() -> None:
     )
 
     parser = argparse.ArgumentParser(
-        description="Lero Lero - Background Speech to Text (Offline)",
+        description="LeroLero - Background Speech to Text (Offline)",
     )
     parser.add_argument("--hotkey", help="Global hotkey to toggle recording")
     parser.add_argument("--model", help="Whisper model ID")

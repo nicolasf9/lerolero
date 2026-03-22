@@ -290,7 +290,7 @@ class WhisperAppController:
     def _start_recording(self) -> None:
         if self.config.get("refocus_window", True) and self.window_manager:
             active_window = self.window_manager.get_active_window()
-            if active_window and "Lero Lero" not in active_window.title:
+            if active_window and "LeroLero" not in active_window.title:
                 self.target_window_handle = active_window
                 self.last_target_window_title = active_window.title
             else:
@@ -567,7 +567,7 @@ class WhisperAppController:
                 pystray.MenuItem("Pause / Resume", _on_pause),
                 pystray.MenuItem("Exit", _on_exit),
             )
-            self.tray_icon = pystray.Icon("whisper-typing", image, "Lero Lero", menu)
+            self.tray_icon = pystray.Icon("whisper-typing", image, "LeroLero", menu)
 
             def run_icon() -> None:
                 try:

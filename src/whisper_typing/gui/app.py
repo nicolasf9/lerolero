@@ -32,7 +32,7 @@ class WhisperAppGUI(ctk.CTk):
         Theme.apply_from_config(controller.config.get("theme"))
         ctk.set_appearance_mode("dark" if Theme.is_dark() else "light")
 
-        self.title("Lero Lero")
+        self.title("LeroLero")
         self.geometry("1100x750")
         self.minsize(700, 500)
         self.after(10, lambda: self.state("zoomed"))
@@ -47,6 +47,23 @@ class WhisperAppGUI(ctk.CTk):
                 self._modak_loaded = True
         except Exception:  # noqa: BLE001
             pass
+
+        # Set window icon (Windows taskbar + title bar)
+        self._icon_path = Path(__file__).parent.parent / "assets" / "icon.ico"
+        self._icon_png_path = Path(__file__).parent.parent / "assets" / "icon.png"
+        try:
+            if self._icon_path.exists():
+                self.iconbitmap(str(self._icon_path))
+            if self._icon_png_path.exists():
+                self._icon_image = ctk.CTkImage(
+                    light_image=__import__("PIL.Image", fromlist=["Image"]).open(self._icon_png_path),
+                    dark_image=__import__("PIL.Image", fromlist=["Image"]).open(self._icon_png_path),
+                    size=(28, 28),
+                )
+            else:
+                self._icon_image = None
+        except Exception:  # noqa: BLE001
+            self._icon_image = None
 
         self.protocol("WM_DELETE_WINDOW", self.hide_window)
 
@@ -93,15 +110,20 @@ class WhisperAppGUI(ctk.CTk):
         top.grid_columnconfigure(1, weight=1)
         top.grid_propagate(False)
 
-        self.lbl_mascot = ctk.CTkLabel(top, text="\U0001f399",
-                                        font=ctk.CTkFont(size=22), text_color=p.text)
-        self.lbl_mascot.grid(row=0, column=0, padx=(16, 4), pady=10)
+        # App icon in header
+        if self._icon_image is not None:
+            self.lbl_icon = ctk.CTkLabel(top, text="", image=self._icon_image, width=28)
+            self.lbl_icon.grid(row=0, column=0, padx=(14, 4), pady=10)
+        else:
+            self.lbl_icon = ctk.CTkLabel(top, text="\U0001f399",
+                                          font=ctk.CTkFont(size=22), text_color=p.text)
+            self.lbl_icon.grid(row=0, column=0, padx=(14, 4), pady=10)
 
         # Brand name in Modak font
         _brand_font = "Modak" if self._modak_loaded else _F
-        ctk.CTkLabel(top, text="Lero Lero",
+        ctk.CTkLabel(top, text="LeroLero",
                      font=ctk.CTkFont(family=_brand_font, size=20),
-                     text_color=p.text).grid(row=0, column=0, padx=(44, 0), pady=10, sticky="w")
+                     text_color=p.text).grid(row=0, column=0, padx=(48, 0), pady=10, sticky="w")
 
         self.status_pill = ctk.CTkLabel(
             top, text="  Starting  ",
@@ -156,7 +178,7 @@ class WhisperAppGUI(ctk.CTk):
         self.chat_frame.grid_columnconfigure(0, weight=1)
         self._chat_row = 0
 
-        self._add_system_msg("Welcome to Lero Lero! Press your hotkey to start speaking.")
+        self._add_system_msg("Welcome to LeroLero! Press your hotkey to start speaking.")
 
         # ── Bottom log ─────────────────────────────────────────────────
         log_box = ctk.CTkFrame(main, fg_color=p.surface, corner_radius=0, height=70)
@@ -197,11 +219,16 @@ class WhisperAppGUI(ctk.CTk):
         row.grid_columnconfigure(1, weight=1)
         self._chat_row += 1
 
-        # Avatar
-        ctk.CTkLabel(
-            row, text="\U0001f399", font=ctk.CTkFont(size=24),
-            text_color=p.accent, width=40, height=40,
-        ).grid(row=0, column=0, padx=(0, 12), pady=(6, 0), sticky="n")
+        # Avatar (use app icon if loaded, else emoji fallback)
+        if self._icon_image is not None:
+            ctk.CTkLabel(
+                row, text="", image=self._icon_image, width=32,
+            ).grid(row=0, column=0, padx=(0, 10), pady=(6, 0), sticky="n")
+        else:
+            ctk.CTkLabel(
+                row, text="\U0001f399", font=ctk.CTkFont(size=24),
+                text_color=p.accent, width=40, height=40,
+            ).grid(row=0, column=0, padx=(0, 10), pady=(6, 0), sticky="n")
 
         # Card
         card = ctk.CTkFrame(row, fg_color=p.surface, corner_radius=14,
@@ -500,7 +527,6 @@ class WhisperAppGUI(ctk.CTk):
     def update_status(self, status: str) -> None:
         p = Theme.get()
         display = status_text(status)
-        self.lbl_mascot.configure(text=mascot(status))
 
         if "Recording" in status:
             self._is_recording = True

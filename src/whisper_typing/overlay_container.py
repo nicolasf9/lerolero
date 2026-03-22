@@ -56,7 +56,7 @@ class StatusOverlay:
     def _run(self) -> None:
         root = tk.Tk()
         self.root = root
-        root.title("Lero Lero Overlay")
+        root.title("LeroLero Overlay")
         root.overrideredirect(True)  # noqa: FBT003
         root.attributes("-topmost", True)  # noqa: FBT003
         root.attributes("-alpha", 0.95)
