@@ -1,6 +1,8 @@
 """Main GUI — Resizable, ChatGPT-style chat, 4K-ready typography."""
 
 import json
+import tkinter as tk
+import tkinter.font as tkfont
 import threading
 from datetime import UTC, datetime
 from pathlib import Path
@@ -30,10 +32,21 @@ class WhisperAppGUI(ctk.CTk):
         Theme.apply_from_config(controller.config.get("theme"))
         ctk.set_appearance_mode("dark" if Theme.is_dark() else "light")
 
-        self.title("LeroLero")
+        self.title("Lero Lero")
         self.geometry("1100x750")
         self.minsize(700, 500)
         self.after(10, lambda: self.state("zoomed"))
+
+        # Load Modak font for branding
+        self._modak_loaded = False
+        try:
+            font_path = Path(__file__).parent.parent / "assets" / "Modak-Regular.ttf"
+            if font_path.exists():
+                import ctypes
+                ctypes.windll.gdi32.AddFontResourceExW(str(font_path), 0x10, 0)
+                self._modak_loaded = True
+        except Exception:  # noqa: BLE001
+            pass
 
         self.protocol("WM_DELETE_WINDOW", self.hide_window)
 
@@ -82,11 +95,13 @@ class WhisperAppGUI(ctk.CTk):
 
         self.lbl_mascot = ctk.CTkLabel(top, text="\U0001f399",
                                         font=ctk.CTkFont(size=22), text_color=p.text)
-        self.lbl_mascot.grid(row=0, column=0, padx=(16, 6), pady=10)
+        self.lbl_mascot.grid(row=0, column=0, padx=(16, 4), pady=10)
 
-        ctk.CTkLabel(top, text="LeroLero",
-                     font=ctk.CTkFont(family=_F, size=16, weight="bold"),
-                     text_color=p.text).grid(row=0, column=0, padx=(46, 0), pady=10, sticky="w")
+        # Brand name in Modak font
+        _brand_font = "Modak" if self._modak_loaded else _F
+        ctk.CTkLabel(top, text="Lero Lero",
+                     font=ctk.CTkFont(family=_brand_font, size=20),
+                     text_color=p.text).grid(row=0, column=0, padx=(44, 0), pady=10, sticky="w")
 
         self.status_pill = ctk.CTkLabel(
             top, text="  Starting  ",
@@ -141,7 +156,7 @@ class WhisperAppGUI(ctk.CTk):
         self.chat_frame.grid_columnconfigure(0, weight=1)
         self._chat_row = 0
 
-        self._add_system_msg("Welcome to LeroLero! Press your hotkey to start speaking.")
+        self._add_system_msg("Welcome to Lero Lero! Press your hotkey to start speaking.")
 
         # ── Bottom log ─────────────────────────────────────────────────
         log_box = ctk.CTkFrame(main, fg_color=p.surface, corner_radius=0, height=70)
