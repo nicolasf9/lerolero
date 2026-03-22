@@ -281,7 +281,7 @@ class WhisperAppGUI(ctk.CTk):
         """Draw a subtle dotted grid behind tab content (inspired by dotted-surface)."""
         bg_canvas = tk.Canvas(self._tab_frame, bg=p.bg, highlightthickness=0)
         bg_canvas.place(relx=0, rely=0, relwidth=1, relheight=1)
-        bg_canvas.lower()  # behind all content
+        tk.Widget.lower(bg_canvas)  # behind all content widgets
 
         # Compute dot color: 10% from bg toward border
         def _lerp_color(c1: str, c2: str, t: float) -> str:
