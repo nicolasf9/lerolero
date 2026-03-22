@@ -281,52 +281,26 @@ class WhisperAppGUI(ctk.CTk):
     # ── Dotted surface background ──────────────────────────────────────
 
     def _draw_dotted_bg(self, p: object) -> None:
-        """Draw an animated dotted wave grid behind tab content (dotted-surface inspired)."""
-        import math as _math
-
+        """Draw a subtle static dotted grid behind tab content."""
         bg_canvas = tk.Canvas(self._tab_frame, bg=p.bg, highlightthickness=0)
         bg_canvas.place(relx=0, rely=0, relwidth=1, relheight=1)
         tk.Widget.lower(bg_canvas)
 
-        # Dot color: subtle blend between bg and border
         r1, g1, b1 = int(p.bg[1:3], 16), int(p.bg[3:5], 16), int(p.bg[5:7], 16)
         r2, g2, b2 = int(p.border[1:3], 16), int(p.border[3:5], 16), int(p.border[5:7], 16)
-        t = 0.2
+        t = 0.15
         dot_color = f"#{int(r1+(r2-r1)*t):02x}{int(g1+(g2-g1)*t):02x}{int(b1+(b2-b1)*t):02x}"
-        dot_hi = f"#{int(r1+(r2-r1)*0.35):02x}{int(g1+(g2-g1)*0.35):02x}{int(b1+(b2-b1)*0.35):02x}"
+        spacing = 24
 
-        spacing = 22
-        self._dot_tick = 0
-        self._dot_items: list[int] = []
-
-        def _init_dots() -> None:
+        def _redraw(_event: object = None) -> None:
             bg_canvas.delete("all")
-            self._dot_items.clear()
             w = bg_canvas.winfo_width()
             h = bg_canvas.winfo_height()
-            for col in range(0, w + spacing, spacing):
-                for row_y in range(0, h + spacing, spacing):
-                    item = bg_canvas.create_oval(col, row_y, col + 2, row_y + 2, fill=dot_color, outline="")
-                    self._dot_items.append((item, col, row_y))
+            for x in range(0, w, spacing):
+                for y in range(0, h, spacing):
+                    bg_canvas.create_oval(x, y, x + 2, y + 2, fill=dot_color, outline="")
 
-        def _animate_wave() -> None:
-            if not bg_canvas.winfo_exists():
-                return
-            self._dot_tick += 1
-            for item, bx, by in self._dot_items:
-                # Sine wave displacement
-                dy = _math.sin((bx / spacing + self._dot_tick * 0.08)) * 3
-                dx = _math.cos((by / spacing + self._dot_tick * 0.06)) * 2
-                # Brightness varies with wave
-                wave_val = (_math.sin((bx + by) / 40 + self._dot_tick * 0.1) + 1) / 2
-                color = dot_hi if wave_val > 0.7 else dot_color
-                bg_canvas.coords(item, bx + dx, by + dy, bx + dx + 2, by + dy + 2)
-                bg_canvas.itemconfig(item, fill=color)
-            bg_canvas.after(80, _animate_wave)
-
-        bg_canvas.bind("<Configure>", lambda _e: _init_dots())
-        bg_canvas.after(200, lambda: (_init_dots(), _animate_wave()))
-        self._dotted_canvas = bg_canvas
+        bg_canvas.bind("<Configure>", _redraw)
 
     # ── Tab navigation ─────────────────────────────────────────────────
 
@@ -400,10 +374,7 @@ class WhisperAppGUI(ctk.CTk):
         self._chat_filter_app.grid(row=0, column=3, padx=(4, 12), pady=6, sticky="e")
         self._chat_filter_app.set("All apps")
 
-        # Animated search border
-        self._search_glow_colors = [p.accent_dim, p.accent, p.accent_hover, p.accent]
-        self._search_glow_idx = 0
-        self._animate_search_glow()
+        # Clean static border for search — no animation
 
         # ── Chat/History area ─────────────────────────────────────────
         self.chat_frame = ctk.CTkScrollableFrame(self._tab_frame, fg_color="transparent", corner_radius=0)
@@ -457,9 +428,11 @@ class WhisperAppGUI(ctk.CTk):
             if val != "All apps":
                 app_filter = val.lower()
 
-        # Load history entries
+        # Load history entries + metrics for duration info
         from whisper_typing.paths import get_history_dir
         hist_file = get_history_dir() / "transcripts.jsonl"
+        metrics_file = get_history_dir() / "metrics.jsonl"
+
         entries = []
         if hist_file.exists():
             try:
@@ -467,6 +440,21 @@ class WhisperAppGUI(ctk.CTk):
                     for line in f:
                         try:
                             entries.append(json.loads(line))
+                        except json.JSONDecodeError:
+                            pass
+            except OSError:
+                pass
+
+        # Load metrics for duration data (index by timestamp prefix)
+        duration_map: dict[str, float] = {}
+        if metrics_file.exists():
+            try:
+                with metrics_file.open("r", encoding="utf-8") as f:
+                    for line in f:
+                        try:
+                            m = json.loads(line)
+                            ts_key = m.get("timestamp", "")[:19]
+                            duration_map[ts_key] = m.get("recording_duration_s", 0)
                         except json.JSONDecodeError:
                             pass
             except OSError:
@@ -498,9 +486,12 @@ class WhisperAppGUI(ctk.CTk):
 
             ts_short = ts[:16].replace("T", " ") if ts else ""
             words = len(text.split())
+            dur = duration_map.get(ts[:19], 0)
             meta_parts = [ts_short]
+            if dur > 0:
+                meta_parts.append(f"{dur:.1f}s")
             if words:
-                meta_parts.append(f"{words}w")
+                meta_parts.append(f"{words} words")
             if win:
                 short_win = win.split(" - ")[0].strip() if " - " in win else win
                 meta_parts.append(f"\U0001f4bb {short_win}")
@@ -515,20 +506,15 @@ class WhisperAppGUI(ctk.CTk):
             elif msg["type"] == "bubble":
                 self._add_saved_bubble(msg["text"], msg.get("meta", ""), p)
 
-        # Scroll to bottom
-        try:
-            self.chat_frame._parent_canvas.yview_moveto(1.0)
-        except Exception:  # noqa: BLE001
-            pass
+        # Scroll to bottom after rendering
+        def _scroll_bottom() -> None:
+            try:
+                self.chat_frame._parent_canvas.yview_moveto(1.0)
+            except Exception:  # noqa: BLE001
+                pass
+        self.after(100, _scroll_bottom)
 
-    def _animate_search_glow(self) -> None:
-        """Cycle the search bar border color for a glowing effect."""
-        if not hasattr(self, "_chat_search") or not self._chat_search.winfo_exists():
-            return
-        color = self._search_glow_colors[self._search_glow_idx % len(self._search_glow_colors)]
-        self._chat_search.configure(border_color=color)
-        self._search_glow_idx += 1
-        self._chat_search.after(600, self._animate_search_glow)
+    # Search glow animation removed — kept clean static border
 
     def _build_tab_metrics(self, p: object) -> None:
         """Metrics tab — cards + bar chart."""
@@ -571,41 +557,11 @@ class WhisperAppGUI(ctk.CTk):
 
     @staticmethod
     def _metric_card(parent: ctk.CTkFrame, col: int, label: str, value: str, color: str, p: object) -> None:
-        """Holographic metric card with mouse-tracking glow effect."""
+        """Clean metric card."""
         c = ctk.CTkFrame(parent, fg_color=p.surface, corner_radius=12,
                           border_width=1, border_color=p.border)
         c.grid(row=0, column=col, padx=4, pady=4, sticky="nsew")
         c.grid_columnconfigure(0, weight=1)
-
-        # Glow canvas (sits behind labels)
-        glow = tk.Canvas(c, bg=p.surface, highlightthickness=0, width=1, height=1)
-        glow.place(relx=0, rely=0, relwidth=1, relheight=1)
-        glow.lower()
-
-        def _on_motion(event: tk.Event) -> None:
-            glow.delete("all")
-            x, y = event.x, event.y
-            # Radial glow following cursor
-            r = 60
-            # Create oval glow — color varies based on x position
-            hue_shift = x / max(c.winfo_width(), 1)
-            # Blend between accent_dim and green based on position
-            glow.create_oval(
-                x - r, y - r, x + r, y + r,
-                fill=p.accent_dim, outline="", stipple="gray12",
-            )
-            # Subtle shine line
-            glow.create_line(
-                x - 30, y - 20, x + 30, y + 20,
-                fill=color, width=1, stipple="gray25",
-            )
-
-        def _on_leave(_event: tk.Event) -> None:
-            glow.delete("all")
-
-        for widget in (c, glow):
-            widget.bind("<Motion>", _on_motion)
-            widget.bind("<Leave>", _on_leave)
 
         ctk.CTkLabel(c, text=label, font=ctk.CTkFont(family=_F, size=9, weight="bold"),
                      text_color=p.muted).grid(row=0, column=0, padx=12, pady=(12, 0), sticky="w")
@@ -619,6 +575,7 @@ class WhisperAppGUI(ctk.CTk):
         from whisper_typing.paths import get_data_dir
 
         self._tab_frame.grid_rowconfigure(0, weight=1)
+        self._tab_frame.grid_rowconfigure(1, weight=0)
 
         form = ctk.CTkScrollableFrame(self._tab_frame, fg_color="transparent", corner_radius=0)
         form.grid(row=0, column=0, sticky="nsew", padx=16, pady=8)
@@ -770,13 +727,17 @@ class WhisperAppGUI(ctk.CTk):
             setattr(self, attr, sw)
             row += 1
 
-        # Save button
+        # Save button — fixed at bottom, always visible
+        save_bar = ctk.CTkFrame(self._tab_frame, fg_color=p.surface, corner_radius=0, height=56)
+        save_bar.grid(row=1, column=0, sticky="sew")
+        save_bar.grid_propagate(False)
+        save_bar.grid_columnconfigure(0, weight=1)
         ctk.CTkButton(
-            form, text="\u2714  Save Settings", width=200, height=40,
+            save_bar, text="\u2714  Save Settings", width=200, height=40,
             font=ctk.CTkFont(family=_F, size=14, weight="bold"),
             fg_color=p.accent_dim, hover_color=p.accent_hover,
             text_color="white", corner_radius=10, command=self._save_settings,
-        ).grid(row=row, column=0, columnspan=2, padx=12, pady=(20, 12))
+        ).grid(row=0, column=0, padx=16, pady=8, sticky="e")
 
     def _save_settings(self) -> None:
         """Save inline settings."""
