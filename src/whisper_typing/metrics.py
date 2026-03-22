@@ -9,10 +9,17 @@ from dataclasses import asdict, dataclass, field
 from datetime import UTC, datetime, timedelta
 from pathlib import Path
 
+from whisper_typing.paths import get_history_dir
+
 logger = logging.getLogger(__name__)
 
-METRICS_FILE = "history/metrics.jsonl"
-TRANSCRIPTS_FILE = "history/transcripts.jsonl"
+
+def _metrics_file() -> Path:
+    return get_history_dir() / "metrics.jsonl"
+
+
+def _transcripts_file() -> Path:
+    return get_history_dir() / "transcripts.jsonl"
 
 
 @dataclass
@@ -63,7 +70,7 @@ class AggregateMetrics:
 def save_metric(metric: SessionMetric) -> None:
     """Append a session metric to the JSONL file."""
     try:
-        path = Path(METRICS_FILE)
+        path = _metrics_file()
         path.parent.mkdir(exist_ok=True)
         with path.open("a", encoding="utf-8") as f:
             f.write(json.dumps(asdict(metric), ensure_ascii=False) + "\n")
@@ -73,7 +80,7 @@ def save_metric(metric: SessionMetric) -> None:
 
 def load_metrics() -> list[SessionMetric]:
     """Load all session metrics from the JSONL file."""
-    path = Path(METRICS_FILE)
+    path = _metrics_file()
     if not path.exists():
         return []
     results = []
@@ -92,7 +99,7 @@ def load_metrics() -> list[SessionMetric]:
 
 def backfill_from_transcripts() -> int:
     """Migrate legacy transcripts to metrics. Returns count of new entries."""
-    transcript_path = Path(TRANSCRIPTS_FILE)
+    transcript_path = _transcripts_file()
     if not transcript_path.exists():
         return 0
 

@@ -15,6 +15,7 @@ from whisper_typing.gui.personality import (
     milestone_message, status_text, time_comparison,
 )
 from whisper_typing.gui.screens import ConfigurationWindow
+from whisper_typing.gui.sidebar import Sidebar
 from whisper_typing.gui.theme import Theme
 from whisper_typing.metrics import aggregate, backfill_from_transcripts, format_duration
 
@@ -33,9 +34,15 @@ class WhisperAppGUI(ctk.CTk):
         ctk.set_appearance_mode("dark" if Theme.is_dark() else "light")
 
         self.title("LeroLero")
-        self.geometry("1100x750")
+        self.geometry("900x600")
         self.minsize(700, 500)
-        self.after(10, lambda: self.state("zoomed"))
+        # Center on screen
+        self.update_idletasks()
+        sw = self.winfo_screenwidth()
+        sh = self.winfo_screenheight()
+        x = (sw - 900) // 2
+        y = (sh - 600) // 2
+        self.geometry(f"900x600+{x}+{y}")
 
         # Load Modak font for branding
         self._modak_loaded = False
@@ -67,8 +74,8 @@ class WhisperAppGUI(ctk.CTk):
 
         self.protocol("WM_DELETE_WINDOW", self.hide_window)
 
-        self._side_open = False
         self._chat_row = 0
+        self._current_tab = "general"
 
         # Live bubble tracking: during recording we UPDATE one bubble, not create many
         self._live_bubble_text: ctk.CTkLabel | None = None
@@ -94,114 +101,81 @@ class WhisperAppGUI(ctk.CTk):
         for w in self.winfo_children():
             w.destroy()
 
-        self.grid_columnconfigure(0, weight=1)
-        self.grid_columnconfigure(1, weight=0)
+        # ── Root grid: sidebar (col 0) + content (col 1) ─────────────
+        self.grid_columnconfigure(0, weight=0)
+        self.grid_columnconfigure(1, weight=1)
         self.grid_rowconfigure(0, weight=1)
 
-        # ── Main column ────────────────────────────────────────────────
-        main = ctk.CTkFrame(self, fg_color=p.bg, corner_radius=0)
-        main.grid(row=0, column=0, sticky="nsew")
-        main.grid_columnconfigure(0, weight=1)
-        main.grid_rowconfigure(2, weight=1)
+        # ── Sidebar ──────────────────────────────────────────────────
+        self.sidebar = Sidebar(self, on_tab_change=self._show_tab)
+        self.sidebar.grid(row=0, column=0, sticky="nsew")
 
-        # ── Top bar ────────────────────────────────────────────────────
-        top = ctk.CTkFrame(main, fg_color=p.surface, corner_radius=0, height=50)
+        # ── Content column ───────────────────────────────────────────
+        content = ctk.CTkFrame(self, fg_color=p.bg, corner_radius=0)
+        content.grid(row=0, column=1, sticky="nsew")
+        content.grid_columnconfigure(0, weight=1)
+        content.grid_rowconfigure(1, weight=1)  # tab content expands
+        self._content_root = content
+
+        # ── Top bar ──────────────────────────────────────────────────
+        top = ctk.CTkFrame(content, fg_color=p.surface, corner_radius=0, height=46)
         top.grid(row=0, column=0, sticky="new")
-        top.grid_columnconfigure(1, weight=1)
+        top.grid_columnconfigure(0, weight=1)
         top.grid_propagate(False)
 
-        # Logo + brand name in a single row
-        brand = ctk.CTkFrame(top, fg_color="transparent")
-        brand.grid(row=0, column=0, padx=(12, 0), pady=8, sticky="w")
-
-        if self._icon_image is not None:
-            ctk.CTkLabel(brand, text="", image=self._icon_image, width=28).pack(
-                side="left", padx=(0, 6))
-
-        _brand_font = "Modak" if self._modak_loaded else _F
-        ctk.CTkLabel(brand, text="LeroLero",
-                     font=ctk.CTkFont(family=_brand_font, size=20),
-                     text_color=p.text).pack(side="left")
-
-        # Status + translation toggle group
-        mid = ctk.CTkFrame(top, fg_color="transparent")
-        mid.grid(row=0, column=1, padx=10, pady=10)
+        # Status + translate + controls in one row
+        bar = ctk.CTkFrame(top, fg_color="transparent")
+        bar.grid(row=0, column=0, padx=12, pady=8, sticky="ew")
+        bar.grid_columnconfigure(1, weight=1)
 
         self.status_pill = ctk.CTkLabel(
-            mid, text="  Starting  ",
+            bar, text="  Starting  ",
             font=ctk.CTkFont(family=_F, size=12, weight="bold"),
             text_color=p.pill_start_fg, fg_color=p.pill_start_bg,
-            corner_radius=12, height=28, width=140,
+            corner_radius=12, height=28, width=130,
         )
-        self.status_pill.pack(side="left", padx=(0, 10))
+        self.status_pill.grid(row=0, column=0, padx=(0, 8))
 
-        # Translation toggle: transcribe vs translate
         self._is_translate = self.controller.config.get("whisper_task", "transcribe") == "translate"
         self.translate_btn = ctk.CTkButton(
-            mid,
+            bar,
             text="\U0001f1e7\U0001f1f7 \u2192 \U0001f1ec\U0001f1e7" if self._is_translate else "\U0001f310 Transcribe",
-            font=ctk.CTkFont(family=_F, size=11),
-            height=28, width=110, corner_radius=12,
+            font=ctk.CTkFont(family=_F, size=11), height=28, width=100, corner_radius=12,
             fg_color=p.accent_dim if self._is_translate else "transparent",
             hover_color=p.surface2,
             text_color="#ffffff" if self._is_translate else p.muted,
             border_width=1, border_color=p.border,
             command=self._toggle_translate,
         )
-        self.translate_btn.pack(side="left")
+        self.translate_btn.grid(row=0, column=1, padx=4, sticky="w")
 
-        bf = ctk.CTkFrame(top, fg_color="transparent")
-        bf.grid(row=0, column=2, padx=(0, 12), pady=10, sticky="e")
+        # Info label (model, backend, hotkey)
+        self.lbl_info = ctk.CTkLabel(bar, text="", font=ctk.CTkFont(family=_M, size=10), text_color=p.muted)
+        self.lbl_info.grid(row=0, column=2, padx=8, sticky="e")
 
-        _bs = dict(height=30, font=ctk.CTkFont(family=_F, size=12),
+        # Right controls
+        _bs = dict(height=28, font=ctk.CTkFont(family=_F, size=12),
                    fg_color="transparent", hover_color=p.surface2,
                    text_color=p.muted, corner_radius=6)
-
-        ctk.CTkButton(bf, text="\u263e" if Theme.is_dark() else "\u2600",
-                       width=30, command=self._toggle_theme, **_bs).grid(row=0, column=0, padx=2)
-        ctk.CTkButton(bf, text="\U0001f4ca Metrics", width=90,
-                       command=self._toggle_side, **_bs).grid(row=0, column=1, padx=2)
-        ctk.CTkButton(bf, text="\u2699 Settings", width=90,
-                       command=self.open_configure, **_bs).grid(row=0, column=2, padx=2)
-        ctk.CTkButton(bf, text="\u2015", width=30,
-                       command=self.hide_window, **_bs).grid(row=0, column=3, padx=2)
-        ctk.CTkButton(bf, text="\u2715", width=30, height=30,
+        ctk.CTkButton(bar, text="\u263e" if Theme.is_dark() else "\u2600",
+                       width=28, command=self._toggle_theme, **_bs).grid(row=0, column=3, padx=2)
+        ctk.CTkButton(bar, text="\u2015", width=28,
+                       command=self.hide_window, **_bs).grid(row=0, column=4, padx=2)
+        ctk.CTkButton(bar, text="\u2715", width=28, height=28,
                        font=ctk.CTkFont(size=12), fg_color="transparent",
                        hover_color=p.close_hover, text_color=p.close_text,
-                       corner_radius=6, command=self.quit_app).grid(row=0, column=4, padx=2)
+                       corner_radius=6, command=self.quit_app).grid(row=0, column=5, padx=2)
 
-        # ── Metrics strip ──────────────────────────────────────────────
-        ms = ctk.CTkFrame(main, fg_color=p.surface2, corner_radius=0, height=34)
-        ms.grid(row=1, column=0, sticky="new")
-        ms.grid_columnconfigure(4, weight=1)
-        ms.grid_propagate(False)
-
-        _mf = ctk.CTkFont(family=_F, size=12, weight="bold")
-        self.lbl_m_words = ctk.CTkLabel(ms, text="\U0001f4ac 0 words", font=_mf, text_color=p.accent)
-        self.lbl_m_words.grid(row=0, column=0, padx=(16, 12), pady=5, sticky="w")
-        self.lbl_m_sessions = ctk.CTkLabel(ms, text="\U0001f3af 0 sessions", font=_mf, text_color=p.muted)
-        self.lbl_m_sessions.grid(row=0, column=1, padx=12, pady=5, sticky="w")
-        self.lbl_m_saved = ctk.CTkLabel(ms, text="\u23f1 0s saved", font=_mf, text_color=p.green)
-        self.lbl_m_saved.grid(row=0, column=2, padx=12, pady=5, sticky="w")
-        self.lbl_m_streak = ctk.CTkLabel(ms, text="", font=_mf, text_color=p.gold)
-        self.lbl_m_streak.grid(row=0, column=3, padx=12, pady=5, sticky="w")
-
-        self.lbl_info = ctk.CTkLabel(ms, text="", font=ctk.CTkFont(family=_M, size=10), text_color=p.muted)
-        self.lbl_info.grid(row=0, column=4, padx=(0, 16), pady=5, sticky="e")
-
-        # ── Chat area ──────────────────────────────────────────────────
-        self.chat_frame = ctk.CTkScrollableFrame(main, fg_color=p.bg, corner_radius=0)
-        self.chat_frame.grid(row=2, column=0, sticky="nsew", padx=0, pady=0)
-        self.chat_frame.grid_columnconfigure(0, weight=1)
-        self._chat_row = 0
-
-        self._empty_state = None
-        self._build_empty_state(p)
+        # ── Tab content area ─────────────────────────────────────────
+        self._tab_frame = ctk.CTkFrame(content, fg_color=p.bg, corner_radius=0)
+        self._tab_frame.grid(row=1, column=0, sticky="nsew")
+        self._tab_frame.grid_columnconfigure(0, weight=1)
+        self._tab_frame.grid_rowconfigure(0, weight=1)
 
         # ── Bottom log (collapsible) ─────────────────────────────────
         self._log_open = False
-        self._log_container = ctk.CTkFrame(main, fg_color=p.surface, corner_radius=0)
-        self._log_container.grid(row=3, column=0, sticky="sew")
+        self._log_container = ctk.CTkFrame(content, fg_color=p.surface, corner_radius=0)
+        self._log_container.grid(row=2, column=0, sticky="sew")
         self._log_container.grid_columnconfigure(0, weight=1)
 
         log_toggle = ctk.CTkButton(
@@ -226,12 +200,224 @@ class WhisperAppGUI(ctk.CTk):
         )
         self.log_text.grid(row=0, column=0, sticky="nsew", padx=10, pady=4)
         self._set_readonly(self.log_text)
-        # Start collapsed
         self._log_box.grid_remove()
 
-        # ── Side panel ─────────────────────────────────────────────────
-        self.side_panel = ctk.CTkFrame(self, fg_color=p.surface, corner_radius=0, width=380)
-        self._build_side(p)
+        # ── Metrics labels (used by update_metrics, always exist) ────
+        self.lbl_m_words = ctk.CTkLabel(self, text="")
+        self.lbl_m_sessions = ctk.CTkLabel(self, text="")
+        self.lbl_m_saved = ctk.CTkLabel(self, text="")
+        self.lbl_m_streak = ctk.CTkLabel(self, text="")
+        # Hide them — they're just data holders; actual display is in tabs
+        for w in (self.lbl_m_words, self.lbl_m_sessions, self.lbl_m_saved, self.lbl_m_streak):
+            w.place(x=-9999, y=-9999)
+
+        # Build the default tab
+        self._show_tab("general")
+
+    # ── Tab navigation ─────────────────────────────────────────────────
+
+    def _show_tab(self, key: str) -> None:
+        """Switch to a different tab — rebuild content."""
+        self._current_tab = key
+        for w in self._tab_frame.winfo_children():
+            w.destroy()
+
+        p = Theme.get()
+        if key == "general":
+            self._build_tab_general(p)
+        elif key == "history":
+            self._build_tab_history(p)
+        elif key == "metrics":
+            self._build_tab_metrics(p)
+        elif key == "settings":
+            self.open_configure()
+            self.sidebar.set_active("general")
+        elif key == "about":
+            self._build_tab_about(p)
+
+    def _build_tab_general(self, p: object) -> None:
+        """General tab — chat bubbles + metrics strip."""
+        # Metrics strip at top
+        ms = ctk.CTkFrame(self._tab_frame, fg_color=p.surface2, corner_radius=0, height=32)
+        ms.grid(row=0, column=0, sticky="new")
+        ms.grid_columnconfigure(3, weight=1)
+        ms.grid_propagate(False)
+
+        _mf = ctk.CTkFont(family=_F, size=11, weight="bold")
+        agg = aggregate()
+        self._gen_words = ctk.CTkLabel(ms, text=f"\U0001f4ac {agg.words_today:,} words", font=_mf, text_color=p.accent)
+        self._gen_words.grid(row=0, column=0, padx=(12, 8), pady=5, sticky="w")
+        self._gen_sessions = ctk.CTkLabel(ms, text=f"\U0001f3af {agg.sessions_today} sessions", font=_mf, text_color=p.muted)
+        self._gen_sessions.grid(row=0, column=1, padx=8, pady=5, sticky="w")
+        self._gen_saved = ctk.CTkLabel(ms, text=f"\u23f1 {format_duration(agg.time_saved_today_s)} saved", font=_mf, text_color=p.green)
+        self._gen_saved.grid(row=0, column=2, padx=8, pady=5, sticky="w")
+        streak_text = ""
+        if agg.streak_days > 1:
+            streak_text = f"\U0001f525 {agg.streak_days}-day streak!"
+        elif agg.streak_days == 1:
+            streak_text = "\U0001f31f Day 1!"
+        self._gen_streak = ctk.CTkLabel(ms, text=streak_text, font=_mf, text_color=p.gold)
+        self._gen_streak.grid(row=0, column=3, padx=8, pady=5, sticky="w")
+
+        # Chat area
+        self.chat_frame = ctk.CTkScrollableFrame(self._tab_frame, fg_color=p.bg, corner_radius=0)
+        self.chat_frame.grid(row=1, column=0, sticky="nsew", padx=0, pady=0)
+        self.chat_frame.grid_columnconfigure(0, weight=1)
+        self._tab_frame.grid_rowconfigure(1, weight=1)
+        self._chat_row = 0
+
+        self._empty_state = None
+        self._build_empty_state(p)
+
+    def _build_tab_history(self, p: object) -> None:
+        """History tab — search + scrollable list."""
+        self._tab_frame.grid_rowconfigure(1, weight=1)
+
+        # Search bar
+        search_frame = ctk.CTkFrame(self._tab_frame, fg_color="transparent")
+        search_frame.grid(row=0, column=0, padx=16, pady=(12, 4), sticky="ew")
+        search_frame.grid_columnconfigure(0, weight=1)
+
+        self._hist_search = ctk.CTkEntry(
+            search_frame, placeholder_text="\U0001f50d Search transcriptions...",
+            font=ctk.CTkFont(family=_F, size=13), height=38,
+            fg_color=p.surface, border_color=p.accent_dim, border_width=2,
+            corner_radius=10,
+        )
+        self._hist_search.grid(row=0, column=0, sticky="ew")
+        self._hist_search.bind("<KeyRelease>", lambda e: self._filter_history())
+
+        # Scrollable list
+        self._hist_list = ctk.CTkScrollableFrame(self._tab_frame, fg_color=p.bg, corner_radius=0)
+        self._hist_list.grid(row=1, column=0, sticky="nsew", padx=8, pady=4)
+        self._hist_list.grid_columnconfigure(0, weight=1)
+        self._load_history_entries(p)
+
+    def _load_history_entries(self, p: object, query: str = "") -> None:
+        """Load history entries into the history tab."""
+        for w in self._hist_list.winfo_children():
+            w.destroy()
+
+        from whisper_typing.paths import get_history_dir
+        hist_file = get_history_dir() / "transcripts.jsonl"
+        if not hist_file.exists():
+            ctk.CTkLabel(self._hist_list, text="No transcriptions yet.",
+                         font=ctk.CTkFont(family=_F, size=14),
+                         text_color=p.muted).grid(row=0, column=0, padx=20, pady=40)
+            return
+
+        entries = []
+        try:
+            with hist_file.open("r", encoding="utf-8") as f:
+                for line in f:
+                    try:
+                        entries.append(json.loads(line))
+                    except json.JSONDecodeError:
+                        pass
+        except OSError:
+            pass
+
+        q = query.lower().strip()
+        for idx, data in enumerate(reversed(entries[-50:])):
+            text = data.get("text", "")
+            if q and q not in text.lower():
+                continue
+            ts = data.get("timestamp", "?")
+            words = len(text.split()) if text.strip() else 0
+
+            card = ctk.CTkFrame(self._hist_list, fg_color=p.surface, corner_radius=10,
+                                 border_width=1, border_color=p.border)
+            card.grid(row=idx, column=0, padx=4, pady=3, sticky="ew")
+            card.grid_columnconfigure(0, weight=1)
+
+            # Text
+            ctk.CTkLabel(card, text=text[:250] + ("..." if len(text) > 250 else ""),
+                         font=ctk.CTkFont(family=_F, size=13),
+                         text_color=p.text, wraplength=500,
+                         justify="left", anchor="nw").grid(
+                row=0, column=0, padx=14, pady=(10, 2), sticky="ew")
+
+            # Meta
+            meta_text = f"{ts[:16].replace('T', ' ')}  \u00b7  {words} words"
+            ctk.CTkLabel(card, text=meta_text,
+                         font=ctk.CTkFont(family=_M, size=10),
+                         text_color=p.muted_dim).grid(
+                row=1, column=0, padx=14, pady=(0, 10), sticky="w")
+
+    def _filter_history(self) -> None:
+        q = self._hist_search.get() if hasattr(self, "_hist_search") else ""
+        self._load_history_entries(Theme.get(), q)
+
+    def _build_tab_metrics(self, p: object) -> None:
+        """Metrics tab — cards + bar chart."""
+        self._tab_frame.grid_rowconfigure(2, weight=1)
+        agg = aggregate()
+
+        # Cards row
+        cards = ctk.CTkFrame(self._tab_frame, fg_color="transparent")
+        cards.grid(row=0, column=0, padx=16, pady=(16, 8), sticky="ew")
+        cards.grid_columnconfigure((0, 1, 2, 3), weight=1)
+
+        self._metric_card(cards, 0, "\u23f1 TIME SAVED", format_duration(agg.total_time_saved_s), p.green, p)
+        self._metric_card(cards, 1, "\U0001f4ac TOTAL WORDS", f"{agg.total_words:,}", p.accent, p)
+        self._metric_card(cards, 2, "\U0001f3af SESSIONS", str(agg.total_sessions), p.muted, p)
+        self._metric_card(cards, 3, "\u26a1 AVG SPEED", f"{agg.avg_words_per_session:.0f} w/session", p.gold, p)
+
+        # Bar chart - last 7 days
+        ctk.CTkLabel(self._tab_frame, text="  LAST 7 DAYS",
+                     font=ctk.CTkFont(family=_F, size=11, weight="bold"),
+                     text_color=p.accent).grid(row=1, column=0, padx=20, pady=(12, 4), sticky="w")
+
+        bar_frame = ctk.CTkFrame(self._tab_frame, fg_color=p.surface, corner_radius=10,
+                                  border_width=1, border_color=p.border)
+        bar_frame.grid(row=2, column=0, padx=16, pady=(0, 16), sticky="nsew")
+        bar_frame.grid_columnconfigure(1, weight=1)
+
+        max_w = max(agg.words_by_day.values()) if agg.words_by_day else 1
+        for i, (day, words) in enumerate(sorted(agg.words_by_day.items())):
+            ctk.CTkLabel(bar_frame, text=day[5:],
+                         font=ctk.CTkFont(family=_M, size=11), text_color=p.muted).grid(
+                row=i, column=0, padx=(14, 6), pady=4, sticky="w")
+            bar = ctk.CTkProgressBar(bar_frame, height=12, corner_radius=6,
+                                     fg_color=p.border, progress_color=p.accent_dim)
+            bar.grid(row=i, column=1, padx=4, pady=4, sticky="ew")
+            bar.set(words / max(max_w, 1))
+            ctk.CTkLabel(bar_frame, text=str(words),
+                         font=ctk.CTkFont(family=_M, size=11, weight="bold"),
+                         text_color=p.text).grid(
+                row=i, column=2, padx=(6, 14), pady=4, sticky="e")
+
+    @staticmethod
+    def _metric_card(parent: ctk.CTkFrame, col: int, label: str, value: str, color: str, p: object) -> None:
+        c = ctk.CTkFrame(parent, fg_color=p.surface, corner_radius=12,
+                          border_width=1, border_color=p.border)
+        c.grid(row=0, column=col, padx=4, pady=4, sticky="nsew")
+        c.grid_columnconfigure(0, weight=1)
+        ctk.CTkLabel(c, text=label, font=ctk.CTkFont(family=_F, size=9, weight="bold"),
+                     text_color=p.muted).grid(row=0, column=0, padx=12, pady=(12, 0), sticky="w")
+        ctk.CTkLabel(c, text=value, font=ctk.CTkFont(family=_F, size=20, weight="bold"),
+                     text_color=color).grid(row=1, column=0, padx=12, pady=(2, 12), sticky="w")
+
+    def _build_tab_about(self, p: object) -> None:
+        """About tab."""
+        frame = ctk.CTkFrame(self._tab_frame, fg_color="transparent")
+        frame.grid(row=0, column=0, padx=40, pady=40, sticky="nsew")
+        frame.grid_columnconfigure(0, weight=1)
+
+        ctk.CTkLabel(frame, text="LeroLero",
+                     font=ctk.CTkFont(family="Modak" if self._modak_loaded else _F, size=36),
+                     text_color=p.text).grid(row=0, column=0, pady=(20, 4))
+        ctk.CTkLabel(frame, text="v1.0.0",
+                     font=ctk.CTkFont(family=_M, size=12), text_color=p.muted).grid(row=1, column=0, pady=(0, 16))
+        ctk.CTkLabel(frame, text="100% offline speech-to-text for Windows",
+                     font=ctk.CTkFont(family=_F, size=14), text_color=p.muted).grid(row=2, column=0, pady=4)
+        ctk.CTkLabel(frame, text="Powered by OpenVINO / CUDA / DirectML + Whisper",
+                     font=ctk.CTkFont(family=_F, size=12), text_color=p.muted_dim).grid(row=3, column=0, pady=2)
+        ctk.CTkLabel(frame, text="Your voice never leaves your computer.",
+                     font=ctk.CTkFont(family=_F, size=12, slant="italic"),
+                     text_color=p.accent).grid(row=4, column=0, pady=(16, 4))
+        ctk.CTkLabel(frame, text="Based on whisper-typing by Roger Filomeno (MIT)",
+                     font=ctk.CTkFont(family=_F, size=11), text_color=p.muted_dim).grid(row=5, column=0, pady=2)
 
     # ── Chat messages ──────────────────────────────────────────────────
 
@@ -417,69 +603,7 @@ class WhisperAppGUI(ctk.CTk):
         self._live_bubble_text = None
         self._live_bubble_meta = None
 
-    # ── Side panel ─────────────────────────────────────────────────────
-
-    def _build_side(self, p: object) -> None:
-        for w in self.side_panel.winfo_children():
-            w.destroy()
-
-        self.side_panel.grid_columnconfigure(0, weight=1)
-        self.side_panel.grid_rowconfigure(4, weight=1)
-
-        hdr = ctk.CTkFrame(self.side_panel, fg_color="transparent")
-        hdr.grid(row=0, column=0, padx=14, pady=(12, 4), sticky="ew")
-        hdr.grid_columnconfigure(0, weight=1)
-
-        ctk.CTkLabel(hdr, text="\U0001f4ca Metrics & History",
-                     font=ctk.CTkFont(family=_F, size=15, weight="bold"),
-                     text_color=p.text).grid(row=0, column=0, sticky="w")
-        ctk.CTkButton(hdr, text="\u2715", width=28, height=28,
-                       font=ctk.CTkFont(size=12), fg_color="transparent",
-                       hover_color=p.surface2, text_color=p.muted,
-                       corner_radius=6, command=self._toggle_side).grid(row=0, column=1)
-
-        # Cards
-        cards = ctk.CTkFrame(self.side_panel, fg_color="transparent")
-        cards.grid(row=1, column=0, padx=12, pady=4, sticky="ew")
-        cards.grid_columnconfigure((0, 1), weight=1)
-
-        self._sp_time = self._sp_card(cards, 0, 0, "TIME SAVED", "0s", p.green, p)
-        self._sp_words = self._sp_card(cards, 0, 1, "TOTAL WORDS", "0", p.accent, p)
-        self._sp_avg = self._sp_card(cards, 1, 0, "AVG / SESSION", "0", p.muted, p)
-        self._sp_proc = self._sp_card(cards, 1, 1, "AVG PROC", "0s", p.muted, p)
-
-        # Bars
-        ctk.CTkLabel(self.side_panel, text="  LAST 7 DAYS",
-                     font=ctk.CTkFont(family=_F, size=10, weight="bold"),
-                     text_color=p.accent).grid(row=2, column=0, padx=14, pady=(10, 2), sticky="w")
-
-        self.sp_bars = ctk.CTkFrame(self.side_panel, fg_color=p.bg, corner_radius=8,
-                                     border_width=1, border_color=p.border)
-        self.sp_bars.grid(row=3, column=0, padx=12, pady=(0, 4), sticky="ew")
-        self.sp_bars.grid_columnconfigure(1, weight=1)
-        self._sp_bar_w: list = []
-
-        # History
-        ctk.CTkLabel(self.side_panel, text="  HISTORY",
-                     font=ctk.CTkFont(family=_F, size=10, weight="bold"),
-                     text_color=p.accent).grid(row=4, column=0, padx=14, pady=(8, 2), sticky="nw")
-
-        self.sp_hist = ctk.CTkScrollableFrame(self.side_panel, fg_color=p.bg)
-        self.sp_hist.grid(row=4, column=0, padx=10, pady=(24, 10), sticky="nsew")
-        self.sp_hist.grid_columnconfigure(0, weight=1)
-
-    @staticmethod
-    def _sp_card(parent: ctk.CTkFrame, row: int, col: int,
-                 label: str, value: str, color: str, p: object) -> ctk.CTkLabel:
-        c = ctk.CTkFrame(parent, fg_color=p.surface2, corner_radius=10)
-        c.grid(row=row, column=col, padx=3, pady=3, sticky="nsew")
-        c.grid_columnconfigure(0, weight=1)
-        ctk.CTkLabel(c, text=label, font=ctk.CTkFont(family=_F, size=9, weight="bold"),
-                     text_color=p.muted).grid(row=0, column=0, padx=10, pady=(8, 0), sticky="w")
-        v = ctk.CTkLabel(c, text=value, font=ctk.CTkFont(family=_F, size=17, weight="bold"),
-                         text_color=color)
-        v.grid(row=1, column=0, padx=10, pady=(0, 8), sticky="w")
-        return v
+    # ── (Side panel replaced by sidebar tabs) ──────────────────────────
 
     def _toggle_translate(self) -> None:
         self._is_translate = not self._is_translate
@@ -512,86 +636,7 @@ class WhisperAppGUI(ctk.CTk):
             self._log_toggle_btn.configure(text="\u25bc  System Logs")
             self._log_open = True
 
-    def _toggle_side(self) -> None:
-        if self._side_open:
-            self.side_panel.grid_forget()
-            self._side_open = False
-        else:
-            self.side_panel.grid(row=0, column=1, sticky="nsew")
-            self._side_open = True
-            self._refresh_side()
-
-    def _refresh_side(self) -> None:
-        p = Theme.get()
-        agg = aggregate()
-
-        self._sp_time.configure(text=format_duration(agg.total_time_saved_s))
-        self._sp_words.configure(text=f"{agg.total_words:,}")
-        self._sp_avg.configure(text=f"{agg.avg_words_per_session:.0f}w")
-        self._sp_proc.configure(text=format_duration(agg.avg_processing_s))
-
-        # Bars
-        for w in self._sp_bar_w:
-            for item in w:
-                item.destroy()
-        self._sp_bar_w.clear()
-
-        max_w = max(agg.words_by_day.values()) if agg.words_by_day else 1
-        for i, (day, words) in enumerate(sorted(agg.words_by_day.items())):
-            lbl = ctk.CTkLabel(self.sp_bars, text=day[5:],
-                               font=ctk.CTkFont(family=_M, size=10), text_color=p.muted)
-            lbl.grid(row=i, column=0, padx=(10, 4), pady=2, sticky="w")
-            bar = ctk.CTkProgressBar(self.sp_bars, height=10, corner_radius=4,
-                                     fg_color=p.border, progress_color=p.accent_dim)
-            bar.grid(row=i, column=1, padx=2, pady=2, sticky="ew")
-            bar.set(words / max(max_w, 1))
-            n = ctk.CTkLabel(self.sp_bars, text=str(words),
-                             font=ctk.CTkFont(family=_M, size=10), text_color=p.text)
-            n.grid(row=i, column=2, padx=(4, 10), pady=2, sticky="e")
-            self._sp_bar_w.append((lbl, bar, n))
-
-        # History
-        for w in self.sp_hist.winfo_children():
-            w.destroy()
-
-        hist_file = Path.cwd() / "history" / "transcripts.jsonl"
-        if hist_file.exists():
-            entries = []
-            try:
-                with hist_file.open("r", encoding="utf-8") as f:
-                    for line in f:
-                        try:
-                            entries.append(json.loads(line))
-                        except json.JSONDecodeError:
-                            pass
-            except OSError:
-                pass
-
-            for idx, data in enumerate(reversed(entries[-25:])):
-                ts = data.get("timestamp", "?")
-                text = data.get("text", "")
-                words = len(text.split()) if text.strip() else 0
-
-                card = ctk.CTkFrame(self.sp_hist, fg_color=p.surface2, corner_radius=8)
-                card.grid(row=idx, column=0, padx=2, pady=2, sticky="ew")
-                card.grid_columnconfigure(0, weight=1)
-
-                meta = ctk.CTkFrame(card, fg_color="transparent")
-                meta.grid(row=0, column=0, padx=10, pady=(6, 0), sticky="ew")
-                meta.grid_columnconfigure(0, weight=1)
-
-                ctk.CTkLabel(meta, text=ts[:16].replace("T", " "),
-                             font=ctk.CTkFont(family=_M, size=10),
-                             text_color=p.muted).grid(row=0, column=0, sticky="w")
-                ctk.CTkLabel(meta, text=f"{words}w",
-                             font=ctk.CTkFont(family=_F, size=10),
-                             text_color=p.accent).grid(row=0, column=1, sticky="e")
-
-                ctk.CTkLabel(card, text=text[:180] + ("..." if len(text) > 180 else ""),
-                             font=ctk.CTkFont(family=_F, size=12),
-                             text_color=p.text, wraplength=320,
-                             justify="left", anchor="w").grid(
-                    row=1, column=0, padx=10, pady=(0, 6), sticky="w")
+    # Side panel methods removed — replaced by tab-based layout
 
     # ── Theme ──────────────────────────────────────────────────────────
 
@@ -653,15 +698,17 @@ class WhisperAppGUI(ctk.CTk):
 
     def update_metrics(self) -> None:
         agg = aggregate()
-        self.lbl_m_words.configure(text=f"\U0001f4ac {agg.words_today:,} words")
-        self.lbl_m_sessions.configure(text=f"\U0001f3af {agg.sessions_today} sessions")
-        self.lbl_m_saved.configure(text=f"\u23f1 {format_duration(agg.time_saved_today_s)} saved")
-        if agg.streak_days > 1:
-            self.lbl_m_streak.configure(text=f"\U0001f525 {agg.streak_days}-day streak!")
-        elif agg.streak_days == 1:
-            self.lbl_m_streak.configure(text="\U0001f31f Day 1!")
-        else:
-            self.lbl_m_streak.configure(text="")
+        # Update general tab metrics strip if it exists
+        if hasattr(self, "_gen_words") and self._gen_words.winfo_exists():
+            self._gen_words.configure(text=f"\U0001f4ac {agg.words_today:,} words")
+            self._gen_sessions.configure(text=f"\U0001f3af {agg.sessions_today} sessions")
+            self._gen_saved.configure(text=f"\u23f1 {format_duration(agg.time_saved_today_s)} saved")
+            streak = ""
+            if agg.streak_days > 1:
+                streak = f"\U0001f525 {agg.streak_days}-day streak!"
+            elif agg.streak_days == 1:
+                streak = "\U0001f31f Day 1!"
+            self._gen_streak.configure(text=streak)
 
         msg = milestone_message(agg.total_words, agg.words_today, agg.sessions_today)
         if msg:

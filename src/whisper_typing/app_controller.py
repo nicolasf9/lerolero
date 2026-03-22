@@ -23,6 +23,7 @@ from whisper_typing.audio_capture import AudioRecorder
 from whisper_typing.context_prompts import get_prompt_for_process
 from whisper_typing.metrics import SessionMetric, save_metric
 from whisper_typing.overlay_container import StatusOverlay
+from whisper_typing.paths import get_config_path, get_data_dir, get_history_dir
 from whisper_typing.text_cleaner import clean_transcript
 from whisper_typing.transcriber import Transcriber
 from whisper_typing.window_manager import WindowManager
@@ -56,9 +57,9 @@ DEFAULT_CONFIG: dict[str, Any] = {
 }
 
 
-def load_config(config_path: str = "config.json") -> dict[str, Any]:
-    """Load configuration from JSON file."""
-    path = Path(config_path)
+def load_config() -> dict[str, Any]:
+    """Load configuration from AppData JSON file."""
+    path = get_config_path()
     if path.exists():
         try:
             with path.open() as f:
@@ -68,14 +69,13 @@ def load_config(config_path: str = "config.json") -> dict[str, Any]:
     return {}
 
 
-def save_config(config: dict[str, Any], config_path: str = "config.json") -> None:
-    """Save configuration to JSON file."""
+def save_config(config: dict[str, Any]) -> None:
+    """Save configuration to AppData JSON file."""
     try:
         save_data = config.copy()
-        # Remove any leftover legacy keys
         for key in ("gemini_api_key", "gemini_model", "gemini_prompt", "improve_hotkey"):
             save_data.pop(key, None)
-        with Path(config_path).open("w") as f:
+        with get_config_path().open("w") as f:
             json.dump(save_data, f, indent=4)
     except Exception:  # noqa: BLE001, S110
         pass
@@ -456,8 +456,7 @@ class WhisperAppController:
         if not self.config.get("save_history", True):
             return
         try:
-            history_dir = Path.cwd() / "history"
-            history_dir.mkdir(exist_ok=True)
+            history_dir = get_history_dir()
             history_file = history_dir / "transcripts.jsonl"
             entry = {"timestamp": datetime.now(UTC).isoformat(), "text": text}
             with history_file.open("a", encoding="utf-8") as f:

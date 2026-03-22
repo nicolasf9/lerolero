@@ -82,8 +82,13 @@ def _show_setup_window() -> bool:
 
 def main() -> None:
     """Run the LeroLero application."""
+    from whisper_typing.paths import get_log_path, migrate_legacy_data
+
+    # Migrate legacy data from cwd to AppData on first run
+    migrate_legacy_data()
+
     logging.basicConfig(
-        filename="whisper_typing_debug.log",
+        filename=str(get_log_path()),
         level=logging.DEBUG,
         format="%(asctime)s %(name)s %(levelname)s %(message)s",
         force=True,

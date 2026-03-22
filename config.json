@@ -17,5 +17,6 @@
     "recording_mode": "hold",
     "show_overlay": true,
     "live_typing": false,
-    "theme": "dark"
+    "theme": "dark",
+    "whisper_task": "transcribe"
 }
