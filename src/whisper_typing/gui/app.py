@@ -123,13 +123,32 @@ class WhisperAppGUI(ctk.CTk):
                      font=ctk.CTkFont(family=_brand_font, size=20),
                      text_color=p.text).pack(side="left")
 
+        # Status + translation toggle group
+        mid = ctk.CTkFrame(top, fg_color="transparent")
+        mid.grid(row=0, column=1, padx=10, pady=10)
+
         self.status_pill = ctk.CTkLabel(
-            top, text="  Starting  ",
+            mid, text="  Starting  ",
             font=ctk.CTkFont(family=_F, size=12, weight="bold"),
             text_color=p.pill_start_fg, fg_color=p.pill_start_bg,
             corner_radius=12, height=28, width=140,
         )
-        self.status_pill.grid(row=0, column=1, padx=10, pady=10)
+        self.status_pill.pack(side="left", padx=(0, 10))
+
+        # Translation toggle: transcribe vs translate
+        self._is_translate = self.controller.config.get("whisper_task", "transcribe") == "translate"
+        self.translate_btn = ctk.CTkButton(
+            mid,
+            text="\U0001f1e7\U0001f1f7 \u2192 \U0001f1ec\U0001f1e7" if self._is_translate else "\U0001f310 Transcribe",
+            font=ctk.CTkFont(family=_F, size=11),
+            height=28, width=110, corner_radius=12,
+            fg_color=p.accent_dim if self._is_translate else "transparent",
+            hover_color=p.surface2,
+            text_color="#ffffff" if self._is_translate else p.muted,
+            border_width=1, border_color=p.border,
+            command=self._toggle_translate,
+        )
+        self.translate_btn.pack(side="left")
 
         bf = ctk.CTkFrame(top, fg_color="transparent")
         bf.grid(row=0, column=2, padx=(0, 12), pady=10, sticky="e")
@@ -176,28 +195,87 @@ class WhisperAppGUI(ctk.CTk):
         self.chat_frame.grid_columnconfigure(0, weight=1)
         self._chat_row = 0
 
-        self._add_system_msg("Welcome to LeroLero! Press your hotkey to start speaking.")
+        self._empty_state = None
+        self._build_empty_state(p)
 
-        # ── Bottom log ─────────────────────────────────────────────────
-        log_box = ctk.CTkFrame(main, fg_color=p.surface, corner_radius=0, height=70)
-        log_box.grid(row=3, column=0, sticky="sew")
-        log_box.grid_columnconfigure(0, weight=1)
-        log_box.grid_rowconfigure(0, weight=1)
-        log_box.grid_propagate(False)
+        # ── Bottom log (collapsible) ─────────────────────────────────
+        self._log_open = False
+        self._log_container = ctk.CTkFrame(main, fg_color=p.surface, corner_radius=0)
+        self._log_container.grid(row=3, column=0, sticky="sew")
+        self._log_container.grid_columnconfigure(0, weight=1)
+
+        log_toggle = ctk.CTkButton(
+            self._log_container, text="\u25b6  System Logs",
+            font=ctk.CTkFont(family=_F, size=11), height=24,
+            fg_color="transparent", hover_color=p.surface2,
+            text_color=p.muted, anchor="w", corner_radius=0,
+            command=self._toggle_log,
+        )
+        log_toggle.grid(row=0, column=0, sticky="ew", padx=8, pady=2)
+        self._log_toggle_btn = log_toggle
+
+        self._log_box = ctk.CTkFrame(self._log_container, fg_color=p.surface, height=70)
+        self._log_box.grid_columnconfigure(0, weight=1)
+        self._log_box.grid_rowconfigure(0, weight=1)
+        self._log_box.grid_propagate(False)
 
         self.log_text = ctk.CTkTextbox(
-            log_box, font=ctk.CTkFont(family=_M, size=11),
+            self._log_box, font=ctk.CTkFont(family=_M, size=11),
             fg_color=p.surface, text_color=p.log_text,
             border_width=0, corner_radius=0,
         )
         self.log_text.grid(row=0, column=0, sticky="nsew", padx=10, pady=4)
         self._set_readonly(self.log_text)
+        # Start collapsed
+        self._log_box.grid_remove()
 
         # ── Side panel ─────────────────────────────────────────────────
         self.side_panel = ctk.CTkFrame(self, fg_color=p.surface, corner_radius=0, width=380)
         self._build_side(p)
 
     # ── Chat messages ──────────────────────────────────────────────────
+
+    def _build_empty_state(self, p: object) -> None:
+        """Show a friendly empty state when no transcriptions exist yet."""
+        hotkey = self.controller.config.get("hotkey", "<f8>")
+        frame = ctk.CTkFrame(self.chat_frame, fg_color="transparent")
+        frame.grid(row=0, column=0, padx=40, pady=(120, 40), sticky="ew")
+        frame.grid_columnconfigure(0, weight=1)
+
+        # Large mic icon
+        ctk.CTkLabel(
+            frame, text="\U0001f399",
+            font=ctk.CTkFont(size=56), text_color=p.accent,
+        ).grid(row=0, column=0, pady=(0, 12))
+
+        ctk.CTkLabel(
+            frame, text="Tudo pronto.",
+            font=ctk.CTkFont(family=_F, size=22, weight="bold"),
+            text_color=p.text,
+        ).grid(row=1, column=0, pady=(0, 6))
+
+        ctk.CTkLabel(
+            frame,
+            text=f"Pressione  {hotkey.upper().strip('<>')}  e comece a ditar.",
+            font=ctk.CTkFont(family=_F, size=15),
+            text_color=p.muted,
+        ).grid(row=2, column=0, pady=(0, 8))
+
+        ctk.CTkLabel(
+            frame,
+            text="100% offline  \u00b7  sua voz nunca sai do seu computador",
+            font=ctk.CTkFont(family=_F, size=11),
+            text_color=p.muted,
+        ).grid(row=3, column=0, pady=(4, 0))
+
+        self._empty_state = frame
+        self._chat_row = 1
+
+    def _remove_empty_state(self) -> None:
+        """Remove the empty state when first bubble is created."""
+        if self._empty_state is not None:
+            self._empty_state.destroy()
+            self._empty_state = None
 
     def _add_system_msg(self, text: str) -> None:
         p = Theme.get()
@@ -210,46 +288,90 @@ class WhisperAppGUI(ctk.CTk):
 
     def _create_bubble(self) -> None:
         """Create a new chat bubble for the current recording session."""
+        self._remove_empty_state()
         p = Theme.get()
 
-        row = ctk.CTkFrame(self.chat_frame, fg_color="transparent")
-        row.grid(row=self._chat_row, column=0, padx=(30, 80), pady=(8, 4), sticky="ew")
-        row.grid_columnconfigure(1, weight=1)
-        self._chat_row += 1
-
-        # Avatar (use app icon if loaded, else emoji fallback)
-        if self._icon_image is not None:
-            ctk.CTkLabel(
-                row, text="", image=self._icon_image, width=32,
-            ).grid(row=0, column=0, padx=(0, 10), pady=(6, 0), sticky="n")
-        else:
-            ctk.CTkLabel(
-                row, text="\U0001f399", font=ctk.CTkFont(size=24),
-                text_color=p.accent, width=40, height=40,
-            ).grid(row=0, column=0, padx=(0, 10), pady=(6, 0), sticky="n")
-
-        # Card
-        card = ctk.CTkFrame(row, fg_color=p.surface, corner_radius=14,
+        # Card directly in chat — no avatar, cleaner layout
+        card = ctk.CTkFrame(self.chat_frame, fg_color=p.surface, corner_radius=14,
                              border_width=1, border_color=p.border)
-        card.grid(row=0, column=1, sticky="ew")
+        card.grid(row=self._chat_row, column=0, padx=(30, 30), pady=(8, 4), sticky="ew")
         card.grid_columnconfigure(0, weight=1)
+        self._chat_row += 1
+        self._live_card = card
 
-        # Text label (will be updated live)
+        # Text label — capped width for readability
         self._live_bubble_text = ctk.CTkLabel(
             card, text="...",
             font=ctk.CTkFont(family=_F, size=16),
-            text_color=p.text, wraplength=800,
+            text_color=p.text,
+            wraplength=min(800, max(400, self.winfo_width() - 120)),
             justify="left", anchor="nw",
         )
         self._live_bubble_text.grid(row=0, column=0, padx=18, pady=(14, 4), sticky="ew")
 
-        # Meta label (updated when finalized)
+        # Bottom row: meta + action buttons
+        bottom = ctk.CTkFrame(card, fg_color="transparent")
+        bottom.grid(row=1, column=0, padx=18, pady=(0, 12), sticky="ew")
+        bottom.grid_columnconfigure(0, weight=1)
+
         self._live_bubble_meta = ctk.CTkLabel(
-            card, text="recording...",
+            bottom, text="recording...",
             font=ctk.CTkFont(family=_F, size=11),
-            text_color=p.muted, anchor="w",
+            text_color=p.muted_dim, anchor="w",
         )
-        self._live_bubble_meta.grid(row=1, column=0, padx=18, pady=(0, 12), sticky="w")
+        self._live_bubble_meta.grid(row=0, column=0, sticky="w")
+
+        # Hover action buttons (hidden by default)
+        actions = ctk.CTkFrame(bottom, fg_color="transparent")
+        actions.grid(row=0, column=1, sticky="e")
+        actions.grid_remove()
+
+        _ab = dict(width=26, height=22, corner_radius=4, font=ctk.CTkFont(size=12),
+                    fg_color="transparent", hover_color=p.surface2, text_color=p.muted)
+
+        text_ref = self._live_bubble_text
+        copy_btn = ctk.CTkButton(
+            actions, text="\U0001f4cb",
+            command=lambda: self._copy_bubble_text(text_ref, card),
+            **_ab,
+        )
+        copy_btn.pack(side="left", padx=1)
+
+        del_btn = ctk.CTkButton(
+            actions, text="\U0001f5d1",
+            command=lambda c=card: self._delete_bubble(c),
+            **_ab,
+        )
+        del_btn.pack(side="left", padx=1)
+
+        # Hover bindings
+        def _show(_e: object) -> None:
+            actions.grid()
+
+        def _hide(_e: object) -> None:
+            actions.grid_remove()
+
+        card.bind("<Enter>", _show)
+        card.bind("<Leave>", _hide)
+        for child in (self._live_bubble_text, self._live_bubble_meta, bottom, actions, copy_btn, del_btn):
+            child.bind("<Enter>", _show)
+            child.bind("<Leave>", _hide)
+
+    def _copy_bubble_text(self, text_label: ctk.CTkLabel, card: ctk.CTkFrame) -> None:
+        """Copy bubble text to clipboard with visual feedback."""
+        import pyperclip
+        text = text_label.cget("text")
+        if text and text != "...":
+            pyperclip.copy(text)
+            p = Theme.get()
+            # Flash card border as feedback
+            orig_border = card.cget("border_color")
+            card.configure(border_color=p.green)
+            self.after(600, lambda: card.configure(border_color=orig_border))
+
+    def _delete_bubble(self, card: ctk.CTkFrame) -> None:
+        """Remove a bubble card from the chat."""
+        card.destroy()
 
     def _on_live_preview(self, text: str) -> None:
         """Called during recording — update the live bubble text, don't create new ones."""
@@ -358,6 +480,37 @@ class WhisperAppGUI(ctk.CTk):
                          text_color=color)
         v.grid(row=1, column=0, padx=10, pady=(0, 8), sticky="w")
         return v
+
+    def _toggle_translate(self) -> None:
+        self._is_translate = not self._is_translate
+        p = Theme.get()
+        task = "translate" if self._is_translate else "transcribe"
+        self.controller.config["whisper_task"] = task
+        from whisper_typing.app_controller import save_config
+        save_config(self.controller.config)
+
+        if self._is_translate:
+            self.translate_btn.configure(
+                text="\U0001f1e7\U0001f1f7 \u2192 \U0001f1ec\U0001f1e7",
+                fg_color=p.accent_dim, text_color="#ffffff",
+            )
+            self.write_log("Translation mode: speech will be translated to English.")
+        else:
+            self.translate_btn.configure(
+                text="\U0001f310 Transcribe",
+                fg_color="transparent", text_color=p.muted,
+            )
+            self.write_log("Transcription mode: speech kept in original language.")
+
+    def _toggle_log(self) -> None:
+        if self._log_open:
+            self._log_box.grid_remove()
+            self._log_toggle_btn.configure(text="\u25b6  System Logs")
+            self._log_open = False
+        else:
+            self._log_box.grid(row=1, column=0, sticky="sew")
+            self._log_toggle_btn.configure(text="\u25bc  System Logs")
+            self._log_open = True
 
     def _toggle_side(self) -> None:
         if self._side_open:

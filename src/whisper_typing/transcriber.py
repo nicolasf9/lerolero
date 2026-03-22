@@ -225,8 +225,19 @@ class Transcriber:
         """Return a human-readable string about the detected backend."""
         return _detect_backend("auto")
 
-    def transcribe(self, audio_input: str | np.ndarray) -> str:
-        """Transcribe audio to text."""
+    def transcribe(
+        self,
+        audio_input: str | np.ndarray,
+        initial_prompt: str = "",
+        task: str = "transcribe",
+    ) -> str:
+        """Transcribe audio to text.
+
+        Args:
+            audio_input: Audio file path or numpy array.
+            initial_prompt: Context vocabulary hint (improves accuracy per app).
+            task: "transcribe" or "translate" (translate always outputs English).
+        """
         if isinstance(audio_input, np.ndarray) and not self._has_speech(audio_input):
             return ""
 
@@ -236,7 +247,9 @@ class Transcriber:
             lang = self.language
             if lang and lang.lower() not in ("auto", "multilingual"):
                 generate_kwargs["language"] = lang
-            generate_kwargs["task"] = "transcribe"
+            generate_kwargs["task"] = task
+        if initial_prompt:
+            generate_kwargs["prompt"] = initial_prompt
 
         result = self.pipe(audio_input, generate_kwargs=generate_kwargs)
 

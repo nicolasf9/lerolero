@@ -38,6 +38,7 @@ class Palette:
     close_hover: str
     # Log text
     log_text: str
+    muted_dim: str          # extra-subtle metadata text
     # Decorative (non-text, no AAA requirement)
     accent_glow: str        # soft highlight / glow
     card_highlight: str     # hover state for cards
@@ -67,6 +68,7 @@ DARK = Palette(
     pill_ready_fg="#001a0d",   pill_ready_bg="#34d399",    # 9.47
     close_text="#fca5a5",      close_hover="#3b1c1c",      # 9.92
     log_text="#a8a8c0",        # 8.10 on surface
+    muted_dim="#6e6e84",       # 4.5+ on surfaces (AA large text ok, subtler)
     accent_glow="#9380e0",     card_highlight="#1e1e24",
     pulse_rec_a="#f87171",     pulse_rec_b="#991b1b",
 )
@@ -102,6 +104,7 @@ LIGHT = Palette(
     pill_ready_fg="#001a0d",   pill_ready_bg="#34d399",    # 9.47
     close_text="#b91c1c",      close_hover="#fef2f2",      # text on surface: 7.37
     log_text="#3e3e52",        # 9.73 on white
+    muted_dim="#7a7a90",       # softer metadata on light bg
     accent_glow="#6d4de0",     card_highlight="#f0f0f5",
     pulse_rec_a="#fca5a5",     pulse_rec_b="#dc2626",
 )

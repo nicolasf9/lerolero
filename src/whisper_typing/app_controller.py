@@ -20,8 +20,10 @@ from PIL import Image
 from pynput import keyboard
 
 from whisper_typing.audio_capture import AudioRecorder
+from whisper_typing.context_prompts import get_prompt_for_process
 from whisper_typing.metrics import SessionMetric, save_metric
 from whisper_typing.overlay_container import StatusOverlay
+from whisper_typing.text_cleaner import clean_transcript
 from whisper_typing.transcriber import Transcriber
 from whisper_typing.window_manager import WindowManager
 
@@ -110,7 +112,11 @@ class WhisperAppController:
         self.tray_icon: pystray.Icon | None = None
         self._tray_thread: threading.Thread | None = None
 
-        self.overlay: StatusOverlay = StatusOverlay(audio_level_fn=self._get_audio_level)
+        self.overlay: StatusOverlay = StatusOverlay(
+            audio_level_fn=self._get_audio_level,
+            on_copy=self._overlay_copy,
+            on_cancel=self._overlay_cancel,
+        )
 
         self.on_status_change: Callable[[str], None] | None = None
         self.on_log: Callable[[str], None] | None = None
@@ -120,7 +126,20 @@ class WhisperAppController:
         self.recording_start_time: float = 0.0
         self.live_typed_text: str = ""
         self.last_target_window_title: str = ""
+        self.last_target_process: str = ""
         self.last_recording_duration: float = 0.0
+
+    def _overlay_copy(self) -> None:
+        """Copy the last transcription to clipboard (triggered from overlay)."""
+        if self.pending_text:
+            pyperclip.copy(self.pending_text)
+            self.log("Copied to clipboard.")
+
+    def _overlay_cancel(self) -> None:
+        """Cancel the pending text injection (triggered from overlay)."""
+        self.pending_text = None
+        self.log("Transcription cancelled.")
+        self.set_status("Ready")
 
     def _get_audio_level(self) -> float:
         """Return current mic RMS level (0.0-1.0) for waveform visualization."""
@@ -293,12 +312,15 @@ class WhisperAppController:
             if active_window and "LeroLero" not in active_window.title:
                 self.target_window_handle = active_window
                 self.last_target_window_title = active_window.title
+                self.last_target_process = WindowManager.get_process_name(active_window) or ""
             else:
                 self.target_window_handle = None
                 self.last_target_window_title = ""
+                self.last_target_process = ""
         else:
             self.target_window_handle = None
             self.last_target_window_title = ""
+            self.last_target_process = ""
 
         self.pending_text = None
         self.live_typed_text = ""
@@ -308,6 +330,7 @@ class WhisperAppController:
         if self.recorder:
             self.recorder.start()
         self.recording_start_time = time.time()
+        self.overlay.set_target_app(self.last_target_window_title)
         self.set_status("Recording")
         self.log("Recording started...")
         self._play_beep(660, 150)
@@ -394,7 +417,11 @@ class WhisperAppController:
         proc_start = time.time()
         try:
             if self.transcriber:
-                text = self.transcriber.transcribe(audio_data)
+                ctx_prompt = get_prompt_for_process(self.last_target_process)
+                task = self.config.get("whisper_task", "transcribe")
+                text = self.transcriber.transcribe(audio_data, initial_prompt=ctx_prompt, task=task)
+                if text and self.config.get("clean_transcription", True):
+                    text = clean_transcript(text)
                 proc_duration = time.time() - proc_start
                 rec_duration = proc_start - self.recording_start_time
 
@@ -461,7 +488,9 @@ class WhisperAppController:
             audio_data = self.recorder.get_current_data()
             if audio_data is not None and len(audio_data) > 8000:
                 try:
-                    text = self.transcriber.transcribe(audio_data)
+                    ctx_prompt = get_prompt_for_process(self.last_target_process)
+                    task = self.config.get("whisper_task", "transcribe")
+                    text = self.transcriber.transcribe(audio_data, initial_prompt=ctx_prompt, task=task)
                     if text and text != self.pending_text:
                         self.pending_text = text
                         if self.on_preview_update:

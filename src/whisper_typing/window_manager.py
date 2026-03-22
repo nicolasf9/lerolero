@@ -1,6 +1,7 @@
 """Window management utilities for whisper-typing."""
 
 import ctypes
+import os
 
 import pygetwindow as gw
 
@@ -72,3 +73,29 @@ class WindowManager:
         except Exception:  # noqa: BLE001
             return False
         return True
+
+    @staticmethod
+    def get_process_name(window: gw.Window) -> str | None:
+        """Get the executable name of the process owning a window."""
+        if not window or not hasattr(window, "_hWnd"):
+            return None
+        try:
+            hwnd = window._hWnd  # noqa: SLF001
+            pid = ctypes.c_ulong()
+            ctypes.windll.user32.GetWindowThreadProcessId(hwnd, ctypes.byref(pid))
+            PROCESS_QUERY_INFORMATION = 0x0400  # noqa: N806
+            PROCESS_VM_READ = 0x0010  # noqa: N806
+            handle = ctypes.windll.kernel32.OpenProcess(
+                PROCESS_QUERY_INFORMATION | PROCESS_VM_READ, False, pid.value,  # noqa: FBT003
+            )
+            if handle:
+                try:
+                    buf = ctypes.create_unicode_buffer(260)
+                    size = ctypes.c_ulong(260)
+                    if ctypes.windll.kernel32.QueryFullProcessImageNameW(handle, 0, buf, ctypes.byref(size)):
+                        return os.path.basename(buf.value)
+                finally:
+                    ctypes.windll.kernel32.CloseHandle(handle)
+        except Exception:  # noqa: BLE001
+            pass
+        return None
