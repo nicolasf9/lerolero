@@ -1,11 +1,11 @@
 """Tests for constants module."""
 
-from whisper_typing.constants import WHISPER_NAME_MAP
+from whisper_typing.constants import WHISPER_MODELS
 
 
-def test_whisper_name_map() -> None:
-    """Test that the whisper name map contains expected keys and values."""
-    assert "openai/whisper-tiny" in WHISPER_NAME_MAP
-    assert WHISPER_NAME_MAP["openai/whisper-tiny"] == "tiny"
-    assert "openai/whisper-large-v3" in WHISPER_NAME_MAP
-    assert WHISPER_NAME_MAP["openai/whisper-large-v3"] == "large-v3"
+def test_whisper_models_list() -> None:
+    """Test that the whisper models list contains expected tuples."""
+    expected_tuple_len = 2
+    assert len(WHISPER_MODELS) > 0
+    assert isinstance(WHISPER_MODELS[0], tuple)
+    assert len(WHISPER_MODELS[0]) == expected_tuple_len

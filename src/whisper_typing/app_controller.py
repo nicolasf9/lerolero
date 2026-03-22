@@ -1,54 +1,61 @@
-"""Main application controller for whisper-typing."""
+"""Main application controller for whisper-typing — 100% offline."""
 
+import contextlib
 import json
+import logging
 import os
+import subprocess
 import threading
 import time
+import winsound
+from collections.abc import Callable
+from datetime import UTC, datetime
 from pathlib import Path
 from typing import TYPE_CHECKING, Any
 
+import pyperclip
+import pystray
 import sounddevice as sd
-from dotenv import find_dotenv
+from PIL import Image
 from pynput import keyboard
 
-from whisper_typing.ai_improver import AIImprover
 from whisper_typing.audio_capture import AudioRecorder
+from whisper_typing.metrics import SessionMetric, save_metric
+from whisper_typing.overlay_container import StatusOverlay
 from whisper_typing.transcriber import Transcriber
-from whisper_typing.typer import Typer
 from whisper_typing.window_manager import WindowManager
 
+logger = logging.getLogger(__name__)
+
 if TYPE_CHECKING:
-    from collections.abc import Callable
+    import numpy as np
+
 
 DEFAULT_CONFIG: dict[str, Any] = {
     "hotkey": "<f8>",
-    "type_hotkey": "<f9>",
-    "improve_hotkey": "<f10>",
     "model": "openai/whisper-base",
     "language": None,
-    "gemini_prompt": None,
     "microphone_name": None,
-    "gemini_model": None,
     "device": "cpu",
     "compute_type": "auto",
     "debug": False,
     "typing_wpm": 40,
-    "gemini_api_key": None,
     "refocus_window": True,
     "model_cache_dir": None,
+    "auto_stop": True,
+    "auto_paste": True,
+    "auto_stop_delay": 1.5,
+    "save_history": True,
+    "run_at_startup": False,
+    "recording_mode": "toggle",
+    "show_overlay": True,
+    "live_typing": True,
+    "theme": "dark",
 }
 
 
 def load_config(config_path: str = "config.json") -> dict[str, Any]:
-    """Load configuration from JSON file.
-
-    Args:
-        config_path: Path to the configuration file.
-
-    Returns:
-        The loaded configuration dictionary.
-
-    """
+    """Load configuration from JSON file."""
     path = Path(config_path)
     if path.exists():
         try:
@@ -60,18 +67,12 @@ def load_config(config_path: str = "config.json") -> dict[str, Any]:
 
 
 def save_config(config: dict[str, Any], config_path: str = "config.json") -> None:
-    """Save configuration to JSON file, excluding sensitive data.
-
-    Args:
-        config: The configuration dictionary to save.
-        config_path: Path to the configuration file.
-
-    """
+    """Save configuration to JSON file."""
     try:
-        # Create a copy and remove sensitive keys
         save_data = config.copy()
-        save_data.pop("gemini_api_key", None)
-
+        # Remove any leftover legacy keys
+        for key in ("gemini_api_key", "gemini_model", "gemini_prompt", "improve_hotkey"):
+            save_data.pop(key, None)
         with Path(config_path).open("w") as f:
             json.dump(save_data, f, indent=4)
     except Exception:  # noqa: BLE001, S110
@@ -79,18 +80,12 @@ def save_config(config: dict[str, Any], config_path: str = "config.json") -> Non
 
 
 class WhisperAppController:
-    """Controller for Whisper Typing App logic.
-
-    Decoupled from UI (CLI or TUI).
-    """
+    """Controller — fully offline, no AI APIs."""
 
     def __init__(self) -> None:
-        """Initialize the WhisperAppController."""
         self.config: dict[str, Any] = {}
         self.recorder: AudioRecorder | None = None
         self.transcriber: Transcriber | None = None
-        self.typer: Typer | None = None
-        self.improver: AIImprover | None = None
         self.listener: keyboard.GlobalHotKeys | None = None
         self.window_manager: WindowManager = WindowManager()
         self.target_window_handle: Any | None = None
@@ -99,7 +94,6 @@ class WhisperAppController:
         self.pending_text: str | None = None
         self.paused: bool = False
 
-        # State tracking for optimization
         self.current_model_id: str | None = None
         self.current_language: str | None = None
         self.current_mic_index: int | None = None
@@ -108,77 +102,60 @@ class WhisperAppController:
 
         self.stop_live_transcribe: threading.Event = threading.Event()
         self.live_transcribe_thread: threading.Thread | None = None
+        self._stop_lock = threading.Lock()
 
-        # Callbacks for UI updates
+        self._stop_watchdog: threading.Event = threading.Event()
+        self._watchdog_thread: threading.Thread | None = None
+
+        self.tray_icon: pystray.Icon | None = None
+        self._tray_thread: threading.Thread | None = None
+
+        self.overlay: StatusOverlay = StatusOverlay(audio_level_fn=self._get_audio_level)
+
         self.on_status_change: Callable[[str], None] | None = None
         self.on_log: Callable[[str], None] | None = None
         self.on_preview_update: Callable[[str, str | None], None] | None = None
 
-        self.typing_stop_event: threading.Event = threading.Event()
-        self._is_typing: bool = False
+        self.is_recording_starting: bool = False
+        self.recording_start_time: float = 0.0
+        self.live_typed_text: str = ""
+        self.last_target_window_title: str = ""
+        self.last_recording_duration: float = 0.0
+
+    def _get_audio_level(self) -> float:
+        """Return current mic RMS level (0.0-1.0) for waveform visualization."""
+        if self.recorder and self.recorder.recording:
+            return self.recorder.current_level
+        return 0.0
 
     def log(self, message: str) -> None:
-        """Log a message using the configured UI callback.
-
-        Args:
-            message: The message to log.
-
-        """
         if self.on_log:
             self.on_log(message)
 
     def set_status(self, status: str) -> None:
-        """Update the application status using the configured UI callback.
-
-        Args:
-            status: The new status string.
-
-        """
+        self.log(f"Status changed to: {status}")
         if self.on_status_change:
             self.on_status_change(status)
+        if self.config.get("show_overlay", True):
+            self.overlay.update_status(status)
 
     def load_configuration(self, args: Any = None) -> None:  # noqa: ANN401
-        """Load and merge configuration.
-
-        Args:
-            args: Optional command line arguments to override file config.
-
-        """
         self.config = DEFAULT_CONFIG.copy()
         file_config = load_config()
         self.config.update(file_config)
 
-        # Load from environment
-        env_key = os.getenv("GEMINI_API_KEY")
-        if env_key:
-            self.config["gemini_api_key"] = env_key
-
-        # Override with CLI args if provided
         if args:
             if args.hotkey:
                 self.config["hotkey"] = args.hotkey
-            if args.type_hotkey:
-                self.config["type_hotkey"] = args.type_hotkey
-            if args.improve_hotkey:
-                self.config["improve_hotkey"] = args.improve_hotkey
             if args.model:
                 self.config["model"] = args.model
             if args.language:
                 self.config["language"] = args.language
-            if args.api_key:
-                self.config["gemini_api_key"] = args.api_key
 
     def get_mic_index_from_config(self) -> int | None:
-        """Find device index based on configured name.
-
-        Returns:
-            The device index if found, else None.
-
-        """
         mic_name = self.config.get("microphone_name")
         if not mic_name:
             return None
-
         devices = sd.query_devices()
         for i, dev in enumerate(devices):
             if dev["max_input_channels"] > 0 and mic_name in dev["name"]:
@@ -186,86 +163,20 @@ class WhisperAppController:
         return None
 
     def list_input_devices(self) -> list[tuple[int, str]]:
-        """List available audio input devices.
-
-        Returns:
-            A list of tuples containing device index and name.
-
-        """
         return AudioRecorder.list_devices()
 
     def update_config(self, new_config: dict[str, Any]) -> None:
-        """Update runtime config and save to file.
-
-        Args:
-            new_config: Dictionary of configuration updates.
-
-        """
         self.config.update(new_config)
         save_config(self.config)
+        self._update_startup_shortcut()
         self.log("Configuration saved.")
 
-    def update_env_api_key(self, api_key: str) -> None:
-        """Update Gemini API Key in .env file.
-
-        Args:
-            api_key: The new Gemini API key.
-
-        """
-        try:
-            env_file = find_dotenv() or ".env"
-            path = Path(env_file).absolute()
-            self.log(f"Saving API key to {path}")
-
-            # Read existing lines
-            lines = []
-            if path.exists():
-                with path.open("r", encoding="utf-8") as f:
-                    lines = f.readlines()
-
-            # Update or append
-            key_found = False
-            new_lines = []
-            for line in lines:
-                if line.strip().startswith("GEMINI_API_KEY="):
-                    new_lines.append(f"GEMINI_API_KEY={api_key}\n")
-                    key_found = True
-                else:
-                    new_lines.append(line)
-
-            if not key_found:
-                if new_lines and not new_lines[-1].endswith("\n"):
-                    new_lines[-1] += "\n"
-                new_lines.append(f"GEMINI_API_KEY={api_key}\n")
-
-            # Write back
-            with path.open("w", encoding="utf-8") as f:
-                f.writelines(new_lines)
-
-            # Update current session environment variable and config
-            os.environ["GEMINI_API_KEY"] = api_key
-            self.config["gemini_api_key"] = api_key
-            self.log(f"API Key successfully saved to {path.name}")
-        except Exception as e:  # noqa: BLE001
-            self.log(f"Error saving API key: {e}")
-
     def initialize_components(self) -> bool:
-        """Initialize or re-initialize components.
-
-        Returns:
-            True if initialization was successful, False otherwise.
-
-        """
         self.log("Initializing components...")
-
-        # Microphone Setup
         mic_index = self.get_mic_index_from_config()
-        # Note: If mic not found, we default to None (System Default)
-        # instead of interactive prompt here. The UI should handle setup.
         self.current_mic_index = mic_index
 
         try:
-            # Reload Optimization: Check if model/language changed
             if (
                 not self.transcriber
                 or self.current_model_id != self.config["model"]
@@ -289,268 +200,383 @@ class WhisperAppController:
                 self.current_compute_type = compute_type
 
             self.recorder = AudioRecorder(device_index=self.current_mic_index)
-            self.typer = Typer(wpm=self.config.get("typing_wpm", 40))
-            self.improver = AIImprover(
-                api_key=self.config.get("gemini_api_key"),
-                model_name=self.config.get("gemini_model") or "gemini-1.5-flash",
-                debug=self.config.get("debug", False),
-                logger=self.log,
-            )
 
             self.log("Components initialized.")
-        except Exception as e:  # noqa: BLE001
+            if self.config.get("show_overlay", True):
+                self.overlay.start()
+
+            self._stop_watchdog.clear()
+            self._watchdog_thread = threading.Thread(
+                target=self._listener_watchdog_loop, daemon=True,
+            )
+            self._watchdog_thread.start()
+        except Exception as e:
             self.log(f"Error initializing components: {e}")
+            logger.exception("Component initialization error")
             return False
         else:
             return True
 
     def start_listener(self) -> None:
-        """Start the hotkey listener."""
         if self.listener:
             self.listener.stop()
 
+        mode = self.config.get("recording_mode", "toggle")
+        hotkey_str = self.config.get("hotkey", "<f8>")
+
         try:
-            self.listener = keyboard.GlobalHotKeys(
-                {
-                    self.config["hotkey"]: self.on_record_toggle,
-                    self.config["type_hotkey"]: self.on_type_confirm,
-                    self.config["improve_hotkey"]: self.on_improve_text,
-                }
-            )
+            if mode == "hold":
+                hotkey = keyboard.HotKey(
+                    keyboard.HotKey.parse(hotkey_str), self._start_recording,
+                )
+
+                def _on_press(key: object) -> None:
+                    hotkey.press(self.listener.canonical(key))
+
+                def _on_release(key: object) -> None:
+                    canonical_key = self.listener.canonical(key)
+                    keys_list = hotkey.__dict__.get("_keys", [])
+                    if any(
+                        k == canonical_key for k in keys_list
+                    ) and self.recorder and self.recorder.recording:
+                        self._stop_recording()
+                    hotkey.release(canonical_key)
+
+                self.listener = keyboard.Listener(
+                    on_press=_on_press, on_release=_on_release,
+                )
+            else:
+                self.listener = keyboard.GlobalHotKeys(
+                    {hotkey_str: self.on_record_toggle},
+                )
+
             self.listener.start()
-            self.log(f"Hotkeys registered. Press {self.config['hotkey']} to record.")
+            self.log(f"Hotkey registered ({mode} mode). Press {hotkey_str} to record.")
             self.set_status("Ready")
         except ValueError as e:
             self.log(f"Invalid hotkey format: {e}")
             self.set_status("Hotkey Error")
 
     def stop(self) -> None:
-        """Stop the hotkey listener."""
         if self.listener:
             self.listener.stop()
+            self.listener = None
+
+    def shutdown(self) -> None:
+        self._stop_watchdog.set()
+        if self.tray_icon:
+            self.tray_icon.stop()
+        self.stop()
+        if self.overlay:
+            self.overlay.stop()
 
     def toggle_pause(self) -> None:
-        """Toggle the application pause state."""
         self.paused = not self.paused
         if self.paused:
             self.set_status("Paused")
-            self.log("App paused. Hotkeys disabled.")
+            self.log("App paused.")
         else:
             self.set_status("Ready")
             self.log("App resumed.")
 
-    # --- Callbacks ---
     def on_record_toggle(self) -> None:
-        """Toggle audio recording."""
-        if self.paused:
+        if self.paused or self.is_processing or not self.recorder:
             return
-
-        if self.is_processing:
-            self.log("Busy processing, ignoring record toggle.")
-            return
-
-        if not self.recorder:
-            self.log("Recorder not initialized.")
-            return
-
         if self.recorder.recording:
             self._stop_recording()
         else:
             self._start_recording()
 
     def _start_recording(self) -> None:
-        """Handle the start of an audio recording session."""
         if self.config.get("refocus_window", True) and self.window_manager:
-            self.target_window_handle = self.window_manager.get_active_window()
+            active_window = self.window_manager.get_active_window()
+            if active_window and "LeroLero" not in active_window.title:
+                self.target_window_handle = active_window
+                self.last_target_window_title = active_window.title
+            else:
+                self.target_window_handle = None
+                self.last_target_window_title = ""
         else:
             self.target_window_handle = None
+            self.last_target_window_title = ""
 
         self.pending_text = None
+        self.live_typed_text = ""
         if self.on_preview_update:
-            self.on_preview_update("", None)  # Clear preview
+            self.on_preview_update("", None)
 
         if self.recorder:
             self.recorder.start()
+        self.recording_start_time = time.time()
         self.set_status("Recording")
         self.log("Recording started...")
+        self._play_beep(660, 150)
 
-        # Start live transcription loop
         self.stop_live_transcribe.clear()
         self.live_transcribe_thread = threading.Thread(
-            target=self._live_transcription_loop, daemon=True
+            target=self._live_transcription_loop, daemon=True,
         )
         self.live_transcribe_thread.start()
 
     def _stop_recording(self) -> None:
-        """Handle the end of an audio recording session."""
-        self.log("Stopping recording...")
-        self.set_status("Processing")
-
-        # Stop live transcription loop
-        self.stop_live_transcribe.set()
-        if self.live_transcribe_thread:
-            self.live_transcribe_thread.join()
-
-        if not self.recorder:
+        if not self._stop_lock.acquire(blocking=False):
             return
 
-        audio_data = self.recorder.stop()
+        try:
+            self.log("Stopping recording...")
+            self.set_status("Processing")
+            self._play_beep(440, 150)
 
-        if audio_data is not None:
-            self.is_processing = True
+            self.stop_live_transcribe.set()
+            if (
+                self.live_transcribe_thread
+                and threading.current_thread() != self.live_transcribe_thread
+            ):
+                self.live_transcribe_thread.join()
 
-            def process_audio() -> None:
-                try:
-                    if self.transcriber:
-                        text = self.transcriber.transcribe(audio_data)
-                        if text:
-                            self.pending_text = text
-                            self.log(f"Transcribed: {text}")
-                            if self.on_preview_update:
-                                self.on_preview_update(text, None)
-                            self.set_status("Text Ready")
-                        else:
-                            self.log("No text transcribed.")
-                            self.set_status("Ready")
-                except Exception as e:  # noqa: BLE001
-                    self.log(f"Error: {e}")
-                    self.set_status("Error")
-                finally:
-                    self.is_processing = False
+            if not self.recorder:
+                return
 
-            threading.Thread(target=process_audio).start()
-        else:
-            self.log("No audio data.")
-            self.set_status("Ready")
+            audio_data = self.recorder.stop()
+            if audio_data is not None:
+                self.is_processing = True
+                threading.Thread(
+                    target=self._finish_transcription,
+                    args=(audio_data,), daemon=True,
+                ).start()
+            else:
+                self.log("No audio data.")
+                self.set_status("Ready")
+        finally:
+            self._stop_lock.release()
+
+    def _update_startup_shortcut(self) -> None:
+        if os.name != "nt":
+            return
+
+        run_at_startup = self.config.get("run_at_startup", False)
+        shortcut_name = "WhisperTyping.lnk"
+        appdata = os.environ["APPDATA"]
+        startup_dir = (
+            Path(appdata) / "Microsoft" / "Windows" / "Start Menu"
+            / "Programs" / "Startup"
+        )
+        shortcut_path = startup_dir / shortcut_name
+        batch_path = Path.cwd() / "run_whisper.bat"
+
+        try:
+            if run_at_startup:
+                if not batch_path.exists():
+                    return
+                lnk = str(shortcut_path)
+                target = str(batch_path)
+                work_dir = str(Path.cwd())
+                ps_script = (
+                    "$s = (New-Object -ComObject WScript.Shell)"
+                    f'.CreateShortcut("{lnk}"); '
+                    f'$s.TargetPath = "{target}"; '
+                    f'$s.WorkingDirectory = "{work_dir}"; '
+                    "$s.Save()"
+                )
+                sys_root = os.environ["SYSTEMROOT"]
+                pwsh = Path(sys_root) / "System32" / "WindowsPowerShell" / "v1.0" / "powershell.exe"
+                subprocess.run(  # noqa: S603
+                    [str(pwsh), "-Command", ps_script],
+                    check=True, capture_output=True,
+                )
+            elif shortcut_path.exists():
+                shortcut_path.unlink()
+        except Exception as e:
+            self.log(f"Error updating startup shortcut: {e}")
+            logger.exception("Error updating startup shortcut")
+
+    def _finish_transcription(self, audio_data: "np.ndarray") -> None:
+        proc_start = time.time()
+        try:
+            if self.transcriber:
+                text = self.transcriber.transcribe(audio_data)
+                proc_duration = time.time() - proc_start
+                rec_duration = proc_start - self.recording_start_time
+
+                if text:
+                    self.pending_text = text
+                    self.last_recording_duration = rec_duration
+                    self.log(f"Transcription: {text}")
+                    self._save_to_history(text)
+                    self._save_metric(text, rec_duration, proc_duration)
+                    if self.on_preview_update:
+                        self.on_preview_update(text, None)
+                    self.set_status("Text Ready")
+
+                    if self.config.get("live_typing", True):
+                        self._live_type_diff(text)
+                    elif self.config.get("auto_paste", True):
+                        self._auto_paste(text)
+                else:
+                    self.log("No speech detected.")
+                    if not self.pending_text:
+                        self.set_status("Ready")
+        except Exception as e:
+            self.log(f"Transcription error: {e}")
+            logger.exception("Transcription error")
+            self.set_status("Error")
+        finally:
+            self.is_processing = False
+
+    def _save_to_history(self, text: str) -> None:
+        if not self.config.get("save_history", True):
+            return
+        try:
+            history_dir = Path.cwd() / "history"
+            history_dir.mkdir(exist_ok=True)
+            history_file = history_dir / "transcripts.jsonl"
+            entry = {"timestamp": datetime.now(UTC).isoformat(), "text": text}
+            with history_file.open("a", encoding="utf-8") as f:
+                f.write(json.dumps(entry, ensure_ascii=False) + "\n")
+        except Exception as e:
+            self.log(f"Error saving history: {e}")
+
+    def _save_metric(self, text: str, rec_duration: float, proc_duration: float) -> None:
+        words = len(text.split()) if text else 0
+        metric = SessionMetric(
+            timestamp=datetime.now(UTC).isoformat(),
+            words=words, chars=len(text),
+            recording_duration_s=round(rec_duration, 2),
+            processing_duration_s=round(proc_duration, 2),
+            model=self.config.get("model", ""),
+            device=self.config.get("device", "cpu"),
+        )
+        save_metric(metric)
+        self.log(f"Session: {words} words, rec {rec_duration:.1f}s, proc {proc_duration:.1f}s")
 
     def _live_transcription_loop(self) -> None:
-        """Periodically transcribe the current audio buffer during recording."""
         last_transcription_time = time.time()
         while not self.stop_live_transcribe.is_set():
-            time.sleep(0.5)  # Update interval
-
-            throttle_limit = 0.8
-            if (
-                time.time() - last_transcription_time < throttle_limit
-            ):  # Throttle to ~1s
+            time.sleep(0.5)
+            if time.time() - last_transcription_time < 0.8:
                 continue
-
             if not self.recorder or not self.transcriber:
                 continue
 
             audio_data = self.recorder.get_current_data()
-            audio_buffer_min_len = 8000
-            if (
-                audio_data is not None and len(audio_data) > audio_buffer_min_len
-            ):  # At least 0.5s of audio
+            if audio_data is not None and len(audio_data) > 8000:
                 try:
                     text = self.transcriber.transcribe(audio_data)
                     if text and text != self.pending_text:
                         self.pending_text = text
                         if self.on_preview_update:
                             self.on_preview_update(text, None)
+                        if self.config.get("live_typing", True):
+                            self._live_type_diff(text)
+
+                    if self._should_auto_stop(audio_data):
+                        self.log("Silence detected. Auto-stopping...")
+                        self._stop_recording()
+                        break
+
                     last_transcription_time = time.time()
-                except Exception:  # noqa: BLE001, S110
-                    # Don't log errors too frequently in the loop
-                    pass
+                except Exception:  # noqa: BLE001
+                    logger.debug("Live transcription error", exc_info=True)
 
-    def on_type_confirm(self) -> None:
-        """Confirm and start typing the transcribed text."""
-        if self.paused:
-            return
+    def _should_auto_stop(self, audio_data: "np.ndarray | None") -> bool:
+        if not self.config.get("auto_stop", True):
+            return False
+        if time.time() - self.recording_start_time <= self.config.get("auto_stop_delay", 1.5):
+            return False
+        if audio_data is None or len(audio_data) < 16000:
+            return False
+        return not self.transcriber._has_speech(audio_data[-16000:])  # noqa: SLF001
 
-        if self._is_typing:
-            self.log("Stopping typing simulation...")
-            self.typing_stop_event.set()
-            return
+    def _play_beep(self, frequency: int, duration: int) -> None:
+        def beep() -> None:
+            with contextlib.suppress(Exception):
+                winsound.Beep(frequency, duration)
+        threading.Thread(target=beep, daemon=True).start()
 
-        if self.pending_text:
-            text_to_type = self.pending_text
-            self.typing_stop_event.clear()
-            self._is_typing = True
-
-            threading.Thread(
-                target=self._async_typing_wrapper, args=(text_to_type,), daemon=True
-            ).start()
-        else:
-            self.log("No text to type.")
-
-    def _async_typing_wrapper(self, text: str) -> None:
-        """Wrap asynchronous typing simulation."""
+    def _auto_paste(self, text: str) -> None:
         try:
-            do_refocus = self.config.get("refocus_window", True)
-            if do_refocus and self.window_manager and self.target_window_handle:
+            pyperclip.copy(text)
+            time.sleep(0.1)
+            if self.config.get("refocus_window", True) and self.window_manager and self.target_window_handle:
                 if not self.window_manager.focus_window(self.target_window_handle):
-                    self.log("Failed to restore focus.")
-                    self._is_typing = False
                     return
-                time.sleep(0.3)
+                time.sleep(0.7)
+            else:
+                time.sleep(0.2)
+            kb = keyboard.Controller()
+            with kb.pressed(keyboard.Key.ctrl):
+                time.sleep(0.05)
+                kb.press("v")
+                time.sleep(0.05)
+                kb.release("v")
+        except Exception as e:
+            self.log(f"Auto-paste error: {e}")
 
-            if self.typer:
-                self.typer.type_text(
-                    text,
-                    stop_event=self.typing_stop_event,
-                    check_focus=self._check_typing_focus,
-                )
+    def _live_type_diff(self, new_text: str) -> None:
+        try:
+            old_text = self.live_typed_text
+            kb = keyboard.Controller()
+            if new_text.startswith(old_text):
+                kb.type(new_text[len(old_text):])
+                self.live_typed_text = new_text
+            else:
+                common_len = 0
+                for i in range(min(len(old_text), len(new_text))):
+                    if old_text[i] == new_text[i]:
+                        common_len += 1
+                    else:
+                        break
+                for _ in range(len(old_text) - common_len):
+                    kb.press(keyboard.Key.backspace)
+                    kb.release(keyboard.Key.backspace)
+                    time.sleep(0.005)
+                kb.type(new_text[common_len:])
+                self.live_typed_text = new_text
+        except Exception as e:
+            self.log(f"Live typing error: {e}")
 
-                if self.typing_stop_event.is_set():
-                    self.log("Typing stopped.")
-                else:
-                    self.log("Typing finished.")
-        finally:
-            self._is_typing = False
-            self.set_status("Ready")
+    def _listener_watchdog_loop(self) -> None:
+        while not self._stop_watchdog.is_set():
+            for _ in range(50):
+                if self._stop_watchdog.is_set():
+                    return
+                time.sleep(0.1)
+            if self.paused or self._stop_watchdog.is_set():
+                continue
+            if self.listener is None or not self.listener.is_alive():
+                self.log("Hotkey listener stopped. Restarting...")
+                self.start_listener()
 
-    def _check_typing_focus(self) -> bool:
-        """Check if the target window still has focus."""
-        if not self.window_manager or not self.target_window_handle:
-            return True
+    def setup_tray(self, on_open: Callable[[], None]) -> None:
+        icon_path = Path(__file__).parent / "assets" / "icon.png"
+        try:
+            image = Image.open(icon_path) if icon_path.exists() else Image.new("RGB", (64, 64), color=(127, 90, 240))
 
-        active = self.window_manager.get_active_window()
-        if (
-            active
-            and hasattr(active, "_hWnd")
-            and hasattr(self.target_window_handle, "_hWnd")
-        ):
-            return bool(active._hWnd == self.target_window_handle._hWnd)  # noqa: SLF001
-        return bool(active == self.target_window_handle)
+            def _on_open(_i: pystray.Icon, _item: object) -> None:
+                on_open()
 
-    def on_improve_text(self) -> None:
-        """Improve the current pending text using AI."""
-        if self.paused:
-            return
+            def _on_pause(_i: pystray.Icon, _item: object) -> None:
+                self.toggle_pause()
 
-        if self.is_processing:
-            return
+            def _on_exit(_i: pystray.Icon, _item: object) -> None:
+                self.shutdown()
+                os._exit(0)
 
-        if self.pending_text:
-            if not self.config.get("gemini_api_key"):
-                self.log("AI Improvement disabled: Gemini API Key missing.")
-                return
+            menu = pystray.Menu(
+                pystray.MenuItem("Open Whisper", _on_open, default=True),
+                pystray.MenuItem("Pause / Resume", _on_pause),
+                pystray.MenuItem("Exit", _on_exit),
+            )
+            self.tray_icon = pystray.Icon("whisper-typing", image, "LeroLero", menu)
 
-            self.is_processing = True
-            self.set_status("Improving AI")
-            self.log("Requesting AI improvement...")
-
-            def run_improve() -> None:
+            def run_icon() -> None:
                 try:
-                    original_text = self.pending_text
-                    prompt_template = self.config.get("gemini_prompt")
-                    if self.improver:
-                        improved = self.improver.improve_text(
-                            original_text, prompt_template=prompt_template
-                        )
-                        if improved:
-                            self.pending_text = improved
-                            self.log("AI Improvement applied.")
-                            if self.on_preview_update:
-                                self.on_preview_update(improved, original_text)
-                            self.set_status("Text Ready (Improved)")
-                except Exception as e:  # noqa: BLE001
-                    self.log(f"AI Error: {e}")
-                finally:
-                    self.is_processing = False
+                    self.tray_icon.run()
+                except Exception:
+                    logger.exception("Tray icon crashed")
 
-            threading.Thread(target=run_improve).start()
-        else:
-            self.log("No text to improve.")
+            self._tray_thread = threading.Thread(target=run_icon, daemon=True)
+            self._tray_thread.start()
+        except Exception as e:
+            logger.exception("Failed to setup tray")
+            self.log(f"Tray setup failed: {e}")

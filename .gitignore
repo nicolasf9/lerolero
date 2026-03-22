@@ -4,7 +4,10 @@
 
 *.egg-info
 __pycache__
-dist
-config.json
+dist/
 build/
+config.json
 models/
+history/
+*.log
+.env

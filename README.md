@@ -1,127 +1,99 @@
-# Whisper Typing
+# LeroLero
 
-![whiisper](https://github.com/user-attachments/assets/8bbd34ac-38d2-481e-9356-06e9f4498f0e)
+**Speak and it types.** 100% offline speech-to-text for Windows.
 
-A powerful, human-like background speech-to-text application for Windows that runs locally. It listens for a global hotkey to record your voice, transcribes it in real-time using `faster-whisper`, and types the result into your active window with natural rhythm and pace.
+LeroLero runs entirely on your machine -- your voice never leaves your computer. It uses OpenAI's Whisper model locally via your GPU (Intel, NVIDIA, or AMD) or CPU.
 
 ## Features
 
-- **Real-Time Transcription**: See your words appear in the preview area instantly as you speak.
-- **Human-like Typing**: Simulates natural typing with variable speed, random jitter, and intelligent pauses after punctuation.
-- **Global Hotkeys**: Control recording and typing from any application.
-  - **Record/Stop**: `F8` (default)
-  - **Confirm Type**: `F9` (default)
-  - **Improve Text**: `F10` (default) - Uses Gemini AI to fix grammar and refine text.
-- **Window Refocus**: Automatically switches back to your target window after recording stops (configurable).
-- **Safe Focus**: Automatically stops typing if you switch away from the target window.
-- **Secure Storage**: Sensitive API keys (Gemini) are stored safely in a local `.env` file.
-- **TUI Management**: A sleek terminal interface for monitoring logs, previewing text, and configuring settings.
-- **Microphone Selection**: Choose your preferred input device directly from the configuration screen.
-- **Local Processing**: Audio is processed locally using `faster-whisper` (accelerated with CUDA if available).
+- **100% Offline** -- no cloud, no API keys, no data leaves your PC
+- **Multi-GPU** -- auto-detects Intel Arc (OpenVINO), NVIDIA (CUDA), AMD (DirectML), or CPU
+- **Multilingual** -- supports Portuguese, English, and 90+ languages simultaneously
+- **Live Typing** -- types in real-time as you speak, or pastes when done
+- **Chat-Style UI** -- fullscreen dark/light interface showing your transcriptions like a chat
+- **Metrics Dashboard** -- tracks words spoken, time saved, daily streaks
+- **Audio Waveform Overlay** -- floating indicator with real-time audio visualization
+- **System Tray** -- runs in background, activated by global hotkey
+- **Windows Startup** -- can auto-start with Windows
 
-## Prerequisites
+## Quick Start
 
-- **Python 3.13+**
-- **NVIDIA GPU (Recommended)**: Supports CUDA for lightning-fast transcription. Fallback to CPU is supported but slower.
+### Prerequisites
 
-## Installation
+- **Python 3.13.7+** (via [uv](https://docs.astral.sh/uv/))
+- **Windows 10/11**
 
-This project uses `uv` for dependency management.
+### Install
 
-1. **Clone the repository**:
-   ```bash
-   git clone https://github.com/rpfilomeno/whispher-typing.git
-   cd whispher-typing
-   ```
+```bash
+# Install uv if you don't have it
+pip install uv
 
-2. **Install dependencies**:
-   ```bash
-   uv sync
-   ```
+# Clone
+git clone https://github.com/nicolasf9/lerolero.git
+cd lerolero
+```
+
+### Choose your GPU
+
+```bash
+# Intel Arc / Intel iGPU
+uv pip install -e ".[intel]"
+
+# NVIDIA (CUDA)
+uv pip install -e ".[nvidia]"
+
+# AMD (DirectML)
+uv pip install -e ".[amd]"
+
+# CPU only (no GPU acceleration)
+uv pip install -e .
+```
+
+### Run
+
+```bash
+uv run lerolero
+```
 
 ## Usage
 
-Run the application using `uv`:
+1. Press **F9** (default hotkey) to start recording
+2. Speak in any language
+3. Release to stop (hold mode) or press F9 again (toggle mode)
+4. Text appears in the chat and is typed/pasted into the active window
 
-```bash
-uv run whisper-typing
+### Settings
+
+Click the gear icon to configure: Whisper model, language, device, recording mode, hotkey, theme (dark/light), auto-start with Windows.
+
+## GPU Support
+
+| GPU | Backend | Install extra |
+|-----|---------|---------------|
+| Intel Arc B580, A770, etc. | OpenVINO | `.[intel]` |
+| NVIDIA RTX/GTX | CUDA | `.[nvidia]` |
+| AMD RX 7000/6000 | DirectML | `.[amd]` |
+| CPU only | PyTorch | base install |
+
+The app auto-detects your GPU and selects the best backend.
+
+## Privacy
+
+Zero network calls after initial model download. All transcription runs locally. No telemetry, no analytics, no tracking.
+
+## Build Executable
+
+```powershell
+.\build_dist.ps1
 ```
 
-## Build EXE
+Creates `dist/lerolero/lerolero.exe` -- standalone, no Python needed.
 
-Build a Windows executable application:
+## Credits
 
-```bash
-build_dist.ps1
-```
+Based on [whisper-typing](https://github.com/rpfilomeno/whisper-typing) by Roger Filomeno (MIT License).
 
-### TUI Shortcuts
+## License
 
-Inside the application, you can use these keys:
-
-- **`c`**: Open Configuration screen.
-- **`p`**: Pause/Resume hotkeys.
-- **`r`**: Reload configuration.
-- **`q`**: Quit the application.
-
-### Workflow
-
-1. **Start Recording**: Press **F8**. You will see "Recording" in the status bar.
-2. **Speak**: You will see transcribed text appear in the **Preview Area** in real-time.
-3. **Stop**: Press **F8** again. If enabled, the application will automatically refocus the window you were in before recording.
-4. **Confirm Type**: Switch to your target application (e.g., Notepad, Slack) and press **F9**. The text will be typed out with human-like timing.
-5. **Improve (Optional)**: Press **F10** before typing to have Gemini AI refine your transcription.
-
-## Configuration
-
-You can customize the application via the UI (press `c`) or by editing local files.
-
-### Secure API Keys
-
-The Gemini API key is stored in a `.env` file. You can enter it through the UI on first run or by editing the file:
-
-```env
-GEMINI_API_KEY=your_key_here
-```
-
-### JSON Configuration (`config.json`)
-
-Other settings are stored in `config.json`:
-
-```json
-{
-  "hotkey": "<f8>",
-  "type_hotkey": "<f9>",
-  "improve_hotkey": "<f10>",
-  "model": "openai/whisper-base.en",
-  "language": "en",
-  "device": "cpu",
-  "compute_type": "auto",
-  "typing_wpm": 350,
-  "refocus_window": false,
-  "microphone_name": "Default System Mic",
-  "gemini_model": "models/gemini-2.0-flash",
-  "model_cache_dir": "./models/"
-}
-```
-
-## Model Storage
-
-By default, Whisper models are downloaded and stored in the Hugging Face cache directory:
-
-- **Windows**: `%USERPROFILE%\.cache\huggingface\hub`
-- **Linux/macOS**: `~/.cache/huggingface/hub`
-
-### Changing the Storage Location
-
-You can change where models are stored in three ways:
-
-1. **Configuration Screen**: Press `c` in the app and set the **Model Cache Dir**.
-2. **JSON Config**: Manually add or edit the `"model_cache_dir"` field in `config.json`.
-3. **Environment Variable**: Set the `HF_HOME` environment variable on your system.
-
-## Troubleshooting
-
-- **Slow Transcription**: Check the logs to see if "cuda" or "cpu" is being used. You can change this in the Configuration screen.
-- **Hotkeys not working**: Ensure no other application is capturing the same keys.
-- **Microphone Issues**: Ensure the correct microphone is selected in the Configuration screen (`c`).
+MIT -- see [LICENSE](LICENSE)

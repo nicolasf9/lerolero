@@ -4,96 +4,262 @@ from unittest.mock import MagicMock, patch
 
 import numpy as np
 
-from whisper_typing.transcriber import Transcriber
-
-DUMMY_AUDIO_SIZE = 10
+from whisper_typing.transcriber import _VAD_FRAME_SAMPLES, Transcriber
 
 
-@patch("whisper_typing.transcriber.WhisperModel")
-@patch("torch.cuda.is_available")
+@patch("whisper_typing.transcriber.pipeline")
+@patch("whisper_typing.transcriber.OVModelForSpeechSeq2Seq")
+@patch("whisper_typing.transcriber.AutoProcessor")
 def test_transcriber_initialization_cpu(
-    mock_cuda_avail: MagicMock, mock_whisper_model: MagicMock
+    mock_auto_processor: MagicMock,  # noqa: ARG001
+    mock_ov_model: MagicMock,
+    mock_pipeline: MagicMock,
 ) -> None:
-    """Test Transcriber initialization on CPU."""
-    mock_cuda_avail.return_value = False
-
     transcriber = Transcriber(device="cpu", compute_type="int8")
 
-    assert transcriber.device == "cpu"
+    assert transcriber.device == "CPU"
     assert transcriber.compute_type == "int8"
-    mock_whisper_model.assert_called_once()
+    mock_ov_model.from_pretrained.assert_called_once()
+    mock_pipeline.assert_called_once()
 
 
-@patch("whisper_typing.transcriber.WhisperModel")
-@patch("torch.cuda.is_available")
+@patch("whisper_typing.transcriber.pipeline")
+@patch("whisper_typing.transcriber.OVModelForSpeechSeq2Seq")
+@patch("whisper_typing.transcriber.AutoProcessor")
 def test_transcriber_initialization_cuda_auto(
-    mock_cuda_avail: MagicMock,
-    mock_whisper_model: MagicMock,  # noqa: ARG001
+    mock_auto_processor: MagicMock,  # noqa: ARG001
+    mock_ov_model: MagicMock,  # noqa: ARG001
+    mock_pipeline: MagicMock,  # noqa: ARG001
 ) -> None:
-    """Test Transcriber initialization on CUDA with auto compute type."""
-    mock_cuda_avail.return_value = True
-
     transcriber = Transcriber(device="cuda", compute_type="auto")
 
-    assert transcriber.device == "cuda"
-    assert transcriber.compute_type == "float16"  # Auto selects float16 for cuda
-
-
-@patch("whisper_typing.transcriber.WhisperModel")
-def test_transcribe_success(mock_whisper_model: MagicMock) -> None:
-    """Test successful transcription."""
-    mock_instance = mock_whisper_model.return_value
-
-    # Mock segments result
-    segment = MagicMock()
-    segment.text = "Hello world"
-    mock_instance.transcribe.return_value = ([segment], None)
-
-    transcriber = Transcriber()
-    result = transcriber.transcribe(np.zeros(DUMMY_AUDIO_SIZE))
-
-    assert result == "Hello world"
-
-
-@patch("whisper_typing.transcriber.WhisperModel")
-def test_transcribe_multiple_segments(mock_whisper_model: MagicMock) -> None:
-    """Test transcription with multiple segments."""
-    mock_instance = mock_whisper_model.return_value
-
-    seg1 = MagicMock()
-    seg1.text = "Hello"
-    seg2 = MagicMock()
-    seg2.text = "world"
-    mock_instance.transcribe.return_value = ([seg1, seg2], None)
-
-    transcriber = Transcriber()
-    result = transcriber.transcribe(np.zeros(DUMMY_AUDIO_SIZE))
-
-    assert result == "Hello world"
-
-
-@patch("whisper_typing.transcriber.WhisperModel")
-@patch("torch.cuda.is_available")
-def test_transcriber_cuda_fallback_to_cpu(
-    mock_cuda_avail: MagicMock,
-    mock_whisper_model: MagicMock,  # noqa: ARG001
-) -> None:
-    """Test Transcriber falls back to CPU when CUDA requested but unavailable."""
-    mock_cuda_avail.return_value = False
-
-    transcriber = Transcriber(device="cuda", compute_type="float16")
-
-    # Should fallback to CPU
-    assert transcriber.device == "cpu"
+    assert transcriber.device == "GPU"
     assert transcriber.compute_type == "float16"
 
 
-@patch("whisper_typing.transcriber.WhisperModel")
-def test_transcriber_download_root(mock_whisper_model: MagicMock) -> None:
-    """Test Transcriber passes download_root to WhisperModel."""
-    test_root = "/custom/path/to/models"
-    Transcriber(download_root=test_root)
+@patch("whisper_typing.transcriber.pipeline")
+@patch("whisper_typing.transcriber.OVModelForSpeechSeq2Seq")
+@patch("whisper_typing.transcriber.AutoProcessor")
+def test_transcriber_initialization_gpu_device(
+    mock_auto_processor: MagicMock,  # noqa: ARG001
+    mock_ov_model: MagicMock,  # noqa: ARG001
+    mock_pipeline: MagicMock,  # noqa: ARG001
+) -> None:
+    transcriber = Transcriber(device="GPU", compute_type="auto")
 
-    # Verify download_root was passed correctly
-    _, kwargs = mock_whisper_model.call_args
-    assert kwargs["download_root"] == test_root
+    assert transcriber.device == "GPU"
+    assert transcriber.compute_type == "float16"
+
+
+@patch("whisper_typing.transcriber.pipeline")
+@patch("whisper_typing.transcriber.OVModelForSpeechSeq2Seq")
+@patch("whisper_typing.transcriber.AutoProcessor")
+def test_transcriber_cpu_auto_compute(
+    mock_auto_processor: MagicMock,  # noqa: ARG001
+    mock_ov_model: MagicMock,  # noqa: ARG001
+    mock_pipeline: MagicMock,  # noqa: ARG001
+) -> None:
+    transcriber = Transcriber(device="cpu", compute_type="auto")
+
+    assert transcriber.device == "CPU"
+    assert transcriber.compute_type == "int8"
+
+
+@patch("whisper_typing.transcriber.pipeline")
+@patch("whisper_typing.transcriber.OVModelForSpeechSeq2Seq")
+@patch("whisper_typing.transcriber.AutoProcessor")
+def test_transcribe_success_dict(
+    mock_auto_processor: MagicMock,  # noqa: ARG001
+    mock_ov_model: MagicMock,  # noqa: ARG001
+    mock_pipeline: MagicMock,
+) -> None:
+    mock_pipe_instance = MagicMock(return_value={"text": "Hello world"})
+    mock_pipeline.return_value = mock_pipe_instance
+
+    transcriber = Transcriber(language="en")
+
+    # Build audio with a clear speech-like burst to pass VAD
+    audio = _build_speech_audio()
+    result = transcriber.transcribe(audio)
+
+    assert result == "Hello world"
+    mock_pipe_instance.assert_called_once()
+    _, kwargs = mock_pipe_instance.call_args
+    assert kwargs["generate_kwargs"]["language"] == "en"
+
+
+@patch("whisper_typing.transcriber.pipeline")
+@patch("whisper_typing.transcriber.OVModelForSpeechSeq2Seq")
+@patch("whisper_typing.transcriber.AutoProcessor")
+def test_transcribe_no_language(
+    mock_auto_processor: MagicMock,  # noqa: ARG001
+    mock_ov_model: MagicMock,  # noqa: ARG001
+    mock_pipeline: MagicMock,
+) -> None:
+    mock_pipe_instance = MagicMock(return_value={"text": "Test"})
+    mock_pipeline.return_value = mock_pipe_instance
+
+    transcriber = Transcriber()
+    audio = _build_speech_audio()
+    result = transcriber.transcribe(audio)
+
+    assert result == "Test"
+    _, kwargs = mock_pipe_instance.call_args
+    assert kwargs["generate_kwargs"] == {}
+
+
+@patch("whisper_typing.transcriber.pipeline")
+@patch("whisper_typing.transcriber.OVModelForSpeechSeq2Seq")
+@patch("whisper_typing.transcriber.AutoProcessor")
+def test_transcribe_english_only_model_skips_language(
+    mock_auto_processor: MagicMock,  # noqa: ARG001
+    mock_ov_model: MagicMock,  # noqa: ARG001
+    mock_pipeline: MagicMock,
+) -> None:
+    mock_pipe_instance = MagicMock(return_value={"text": "Test"})
+    mock_pipeline.return_value = mock_pipe_instance
+
+    transcriber = Transcriber(
+        model_id="openai/whisper-base.en", language="en"
+    )
+    audio = _build_speech_audio()
+    result = transcriber.transcribe(audio)
+
+    assert result == "Test"
+    _, kwargs = mock_pipe_instance.call_args
+    assert kwargs["generate_kwargs"] == {}
+
+
+@patch("whisper_typing.transcriber.pipeline")
+@patch("whisper_typing.transcriber.OVModelForSpeechSeq2Seq")
+@patch("whisper_typing.transcriber.AutoProcessor")
+def test_transcribe_multiple_segments(
+    mock_auto_processor: MagicMock,  # noqa: ARG001
+    mock_ov_model: MagicMock,  # noqa: ARG001
+    mock_pipeline: MagicMock,
+) -> None:
+    mock_pipe_instance = MagicMock(
+        return_value=[{"text": "Hello"}, {"text": "world"}]
+    )
+    mock_pipeline.return_value = mock_pipe_instance
+
+    transcriber = Transcriber()
+    result = transcriber.transcribe("path/to/audio.wav")
+
+    assert result == "Hello world"
+
+
+@patch("whisper_typing.transcriber.pipeline")
+@patch("whisper_typing.transcriber.OVModelForSpeechSeq2Seq")
+@patch("whisper_typing.transcriber.AutoProcessor")
+def test_transcribe_empty_list(
+    mock_auto_processor: MagicMock,  # noqa: ARG001
+    mock_ov_model: MagicMock,  # noqa: ARG001
+    mock_pipeline: MagicMock,
+) -> None:
+    mock_pipe_instance = MagicMock(return_value=[])
+    mock_pipeline.return_value = mock_pipe_instance
+
+    transcriber = Transcriber()
+    result = transcriber.transcribe("path/to/audio.wav")
+    assert result == ""
+
+
+@patch("whisper_typing.transcriber.pipeline")
+@patch("whisper_typing.transcriber.OVModelForSpeechSeq2Seq")
+@patch("whisper_typing.transcriber.AutoProcessor")
+def test_transcribe_unexpected_return_type(
+    mock_auto_processor: MagicMock,  # noqa: ARG001
+    mock_ov_model: MagicMock,  # noqa: ARG001
+    mock_pipeline: MagicMock,
+) -> None:
+    mock_pipe_instance = MagicMock(return_value="Not a dict or list")
+    mock_pipeline.return_value = mock_pipe_instance
+
+    transcriber = Transcriber()
+    assert transcriber.transcribe("audio.wav") == ""
+
+
+# --- VAD unit tests (pure numpy, no mocks needed) ---
+
+
+def test_has_speech_silence() -> None:
+    """Pure silence (zeros) should be rejected by the energy VAD."""
+    silence = np.zeros(16000, dtype=np.float32)
+    assert Transcriber._has_speech(silence) is False  # noqa: SLF001
+
+
+def test_has_speech_with_burst() -> None:
+    """Audio with a loud burst should be detected as speech."""
+    audio = _build_speech_audio()
+    assert Transcriber._has_speech(audio) is True  # noqa: SLF001
+
+
+def test_has_speech_too_short() -> None:
+    """Audio shorter than one frame should return False."""
+    short = np.zeros(_VAD_FRAME_SAMPLES - 1, dtype=np.float32)
+    assert Transcriber._has_speech(short) is False  # noqa: SLF001
+
+
+def test_has_speech_multidim() -> None:
+    """Multi-dimensional arrays should be flattened and work."""
+    audio = _build_speech_audio().reshape(1, -1)
+    assert Transcriber._has_speech(audio) is True  # noqa: SLF001
+
+
+@patch("whisper_typing.transcriber.pipeline")
+@patch("whisper_typing.transcriber.OVModelForSpeechSeq2Seq")
+@patch("whisper_typing.transcriber.AutoProcessor")
+def test_transcribe_vad_rejects_silence(
+    mock_auto_processor: MagicMock,  # noqa: ARG001
+    mock_ov_model: MagicMock,  # noqa: ARG001
+    mock_pipeline: MagicMock,
+) -> None:
+    """The transcribe method should return '' for silent numpy input."""
+    mock_pipeline.return_value = MagicMock()
+
+    transcriber = Transcriber()
+    result = transcriber.transcribe(np.zeros(16000, dtype=np.float32))
+
+    assert result == ""
+    transcriber.pipe.assert_not_called()
+
+
+@patch("whisper_typing.transcriber.pipeline")
+@patch("whisper_typing.transcriber.OVModelForSpeechSeq2Seq")
+@patch("whisper_typing.transcriber.AutoProcessor")
+def test_transcribe_vad_passes_speech(
+    mock_auto_processor: MagicMock,  # noqa: ARG001
+    mock_ov_model: MagicMock,  # noqa: ARG001
+    mock_pipeline: MagicMock,
+) -> None:
+    """The transcribe method should invoke the pipeline for speech audio."""
+    mock_pipe_instance = MagicMock(return_value={"text": "Speech detected"})
+    mock_pipeline.return_value = mock_pipe_instance
+
+    transcriber = Transcriber()
+    audio = _build_speech_audio()
+    result = transcriber.transcribe(audio)
+
+    assert result == "Speech detected"
+    mock_pipe_instance.assert_called_once()
+
+
+# --- Helper ---
+
+
+def _build_speech_audio(
+    duration_s: float = 1.0,
+    sample_rate: int = 16000,
+) -> np.ndarray:
+    """Build a synthetic audio array with silence + a speech-like burst."""
+    n_samples = int(duration_s * sample_rate)
+    audio = np.zeros(n_samples, dtype=np.float32)
+    # Insert a loud burst in the middle to simulate speech energy
+    burst_start = n_samples // 4
+    burst_end = 3 * n_samples // 4
+    rng = np.random.default_rng(42)
+    audio[burst_start:burst_end] = rng.standard_normal(
+        burst_end - burst_start
+    ).astype(np.float32) * 0.5
+    return audio

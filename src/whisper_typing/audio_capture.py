@@ -28,10 +28,11 @@ class AudioRecorder:
         self.channels = channels
         self.device_index = device_index
         self.recording = False
-        # Use list for easier access to current buffer
         self.frames: list[np.ndarray] = []
         self.thread: threading.Thread | None = None
         self._lock: Final[threading.Lock] = threading.Lock()
+        # Real-time audio level (RMS 0.0–1.0) for waveform visualization
+        self.current_level: float = 0.0
 
     @staticmethod
     def list_devices() -> list[tuple[int, str]]:
@@ -65,10 +66,12 @@ class AudioRecorder:
 
         """
         if status:
-            # Optionally log status here
             pass
         with self._lock:
             self.frames.append(indata.copy())
+        # Compute RMS level for visualization (clamped to 0.0–1.0)
+        rms = float(np.sqrt(np.mean(indata**2)))
+        self.current_level = min(1.0, rms * 15.0)  # amplify for visibility
 
     def _record(self) -> None:
         """Run the internal recording loop."""
