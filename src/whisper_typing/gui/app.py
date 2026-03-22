@@ -14,6 +14,7 @@ from whisper_typing.gui.personality import (
     fun_comparison, greeting, log_emoji, mascot,
     milestone_message, status_text, time_comparison,
 )
+from whisper_typing.gui.recording_orb import RecordingOrb
 from whisper_typing.gui.screens import ConfigurationWindow
 from whisper_typing.gui.sidebar import Sidebar
 from whisper_typing.gui.theme import Theme
@@ -81,6 +82,7 @@ class WhisperAppGUI(ctk.CTk):
         self._live_bubble_text: ctk.CTkLabel | None = None
         self._live_bubble_meta: ctk.CTkLabel | None = None
         self._is_recording = False
+        self._recording_orb: RecordingOrb | None = None
 
         self._build_ui()
 
@@ -214,6 +216,96 @@ class WhisperAppGUI(ctk.CTk):
         # Build the default tab
         self._show_tab("general")
 
+        # ── Preloader overlay (shown during model loading) ───────────
+        self._preloader = ctk.CTkFrame(content, fg_color=p.bg, corner_radius=0)
+        self._preloader.place(relx=0, rely=0, relwidth=1, relheight=1)
+        self._preloader.lift()
+
+        pre_inner = ctk.CTkFrame(self._preloader, fg_color="transparent")
+        pre_inner.place(relx=0.5, rely=0.45, anchor="center")
+
+        # Spinner canvas
+        self._spinner_canvas = tk.Canvas(
+            pre_inner, width=64, height=64, bg=p.bg, highlightthickness=0,
+        )
+        self._spinner_canvas.pack(pady=(0, 16))
+        self._spinner_angle = 0
+        self._spinner_running = True
+        self._animate_spinner()
+
+        ctk.CTkLabel(
+            pre_inner, text="Carregando motores de IA...",
+            font=ctk.CTkFont(family=_F, size=16, weight="bold"),
+            text_color=p.text,
+        ).pack(pady=(0, 6))
+
+        model = self.controller.config.get("model", "whisper-base").split("/")[-1]
+        ctk.CTkLabel(
+            pre_inner, text=f"{model}  \u00b7  detecting GPU...",
+            font=ctk.CTkFont(family=_M, size=11),
+            text_color=p.muted,
+        ).pack()
+
+    def _animate_spinner(self) -> None:
+        """Rotating arc spinner for the preloader."""
+        if not self._spinner_running:
+            return
+        c = self._spinner_canvas
+        p = Theme.get()
+        c.delete("all")
+
+        cx, cy, r = 32, 32, 24
+        # Trail arcs (fading)
+        for i, offset in enumerate([60, 30, 0]):
+            alpha_hex = ["33", "66", "ff"][i]
+            color = p.accent if i == 2 else p.accent_dim
+            start = self._spinner_angle - offset
+            c.create_arc(
+                cx - r, cy - r, cx + r, cy + r,
+                start=start, extent=80, style="arc",
+                outline=color, width=3,
+            )
+
+        self._spinner_angle = (self._spinner_angle + 8) % 360
+        c.after(33, self._animate_spinner)
+
+    def _hide_preloader(self) -> None:
+        """Remove the preloader overlay."""
+        self._spinner_running = False
+        if hasattr(self, "_preloader") and self._preloader.winfo_exists():
+            self._preloader.destroy()
+
+    # ── Dotted surface background ──────────────────────────────────────
+
+    def _draw_dotted_bg(self, p: object) -> None:
+        """Draw a subtle dotted grid behind tab content (inspired by dotted-surface)."""
+        bg_canvas = tk.Canvas(self._tab_frame, bg=p.bg, highlightthickness=0)
+        bg_canvas.place(relx=0, rely=0, relwidth=1, relheight=1)
+        bg_canvas.lower()  # behind all content
+
+        # Compute dot color: 10% from bg toward border
+        def _lerp_color(c1: str, c2: str, t: float) -> str:
+            r1, g1, b1 = int(c1[1:3], 16), int(c1[3:5], 16), int(c1[5:7], 16)
+            r2, g2, b2 = int(c2[1:3], 16), int(c2[3:5], 16), int(c2[5:7], 16)
+            r = int(r1 + (r2 - r1) * t)
+            g = int(g1 + (g2 - g1) * t)
+            b = int(b1 + (b2 - b1) * t)
+            return f"#{r:02x}{g:02x}{b:02x}"
+
+        dot_color = _lerp_color(p.bg, p.border, 0.15)
+        spacing = 24
+
+        def _redraw(_event: object = None) -> None:
+            bg_canvas.delete("all")
+            w = bg_canvas.winfo_width()
+            h = bg_canvas.winfo_height()
+            for x in range(0, w, spacing):
+                for y in range(0, h, spacing):
+                    bg_canvas.create_oval(x, y, x + 1, y + 1, fill=dot_color, outline="")
+
+        bg_canvas.bind("<Configure>", _redraw)
+        self._dotted_canvas = bg_canvas
+
     # ── Tab navigation ─────────────────────────────────────────────────
 
     def _show_tab(self, key: str) -> None:
@@ -223,6 +315,9 @@ class WhisperAppGUI(ctk.CTk):
             w.destroy()
 
         p = Theme.get()
+
+        # Dotted surface background
+        self._draw_dotted_bg(p)
         if key == "general":
             self._build_tab_general(p)
         elif key == "history":
@@ -287,6 +382,11 @@ class WhisperAppGUI(ctk.CTk):
         self._hist_search.grid(row=0, column=0, sticky="ew")
         self._hist_search.bind("<KeyRelease>", lambda e: self._filter_history())
 
+        # Animated glowing border for search bar
+        self._search_glow_colors = [p.accent_dim, p.accent, p.accent_hover, p.accent]
+        self._search_glow_idx = 0
+        self._animate_search_glow()
+
         # Scrollable list
         self._hist_list = ctk.CTkScrollableFrame(self._tab_frame, fg_color=p.bg, corner_radius=0)
         self._hist_list.grid(row=1, column=0, sticky="nsew", padx=8, pady=4)
@@ -330,6 +430,26 @@ class WhisperAppGUI(ctk.CTk):
             card.grid(row=idx, column=0, padx=4, pady=3, sticky="ew")
             card.grid_columnconfigure(0, weight=1)
 
+            # Spotlight glow canvas
+            spot = tk.Canvas(card, bg=p.surface, highlightthickness=0)
+            spot.place(relx=0, rely=0, relwidth=1, relheight=1)
+            spot.lower()
+
+            def _spot_move(e: tk.Event, cv=spot) -> None:
+                cv.delete("all")
+                cv.create_oval(
+                    e.x - 80, e.y - 80, e.x + 80, e.y + 80,
+                    fill=p.accent_dim, outline="", stipple="gray12",
+                )
+
+            def _spot_leave(_e: tk.Event, cv=spot) -> None:
+                cv.delete("all")
+
+            card.bind("<Motion>", _spot_move)
+            card.bind("<Leave>", _spot_leave)
+            spot.bind("<Motion>", _spot_move)
+            spot.bind("<Leave>", _spot_leave)
+
             # Text
             ctk.CTkLabel(card, text=text[:250] + ("..." if len(text) > 250 else ""),
                          font=ctk.CTkFont(family=_F, size=13),
@@ -337,12 +457,33 @@ class WhisperAppGUI(ctk.CTk):
                          justify="left", anchor="nw").grid(
                 row=0, column=0, padx=14, pady=(10, 2), sticky="ew")
 
-            # Meta
+            # Meta + copy button
+            meta_frame = ctk.CTkFrame(card, fg_color="transparent")
+            meta_frame.grid(row=1, column=0, padx=14, pady=(0, 10), sticky="ew")
+            meta_frame.grid_columnconfigure(0, weight=1)
+
             meta_text = f"{ts[:16].replace('T', ' ')}  \u00b7  {words} words"
-            ctk.CTkLabel(card, text=meta_text,
+            ctk.CTkLabel(meta_frame, text=meta_text,
                          font=ctk.CTkFont(family=_M, size=10),
-                         text_color=p.muted_dim).grid(
-                row=1, column=0, padx=14, pady=(0, 10), sticky="w")
+                         text_color=p.muted_dim).grid(row=0, column=0, sticky="w")
+
+            # Copy button (always subtle, more visible on hover)
+            copy_btn = ctk.CTkButton(
+                meta_frame, text="\U0001f4cb", width=24, height=20,
+                font=ctk.CTkFont(size=11), fg_color="transparent",
+                hover_color=p.surface2, text_color=p.muted, corner_radius=4,
+                command=lambda t=text: self._copy_text(t),
+            )
+            copy_btn.grid(row=0, column=1, sticky="e")
+
+    def _animate_search_glow(self) -> None:
+        """Cycle the search bar border color for a glowing effect."""
+        if not hasattr(self, "_hist_search") or not self._hist_search.winfo_exists():
+            return
+        color = self._search_glow_colors[self._search_glow_idx % len(self._search_glow_colors)]
+        self._hist_search.configure(border_color=color)
+        self._search_glow_idx += 1
+        self._hist_search.after(800, self._animate_search_glow)
 
     def _filter_history(self) -> None:
         q = self._hist_search.get() if hasattr(self, "_hist_search") else ""
@@ -389,10 +530,42 @@ class WhisperAppGUI(ctk.CTk):
 
     @staticmethod
     def _metric_card(parent: ctk.CTkFrame, col: int, label: str, value: str, color: str, p: object) -> None:
+        """Holographic metric card with mouse-tracking glow effect."""
         c = ctk.CTkFrame(parent, fg_color=p.surface, corner_radius=12,
                           border_width=1, border_color=p.border)
         c.grid(row=0, column=col, padx=4, pady=4, sticky="nsew")
         c.grid_columnconfigure(0, weight=1)
+
+        # Glow canvas (sits behind labels)
+        glow = tk.Canvas(c, bg=p.surface, highlightthickness=0, width=1, height=1)
+        glow.place(relx=0, rely=0, relwidth=1, relheight=1)
+        glow.lower()
+
+        def _on_motion(event: tk.Event) -> None:
+            glow.delete("all")
+            x, y = event.x, event.y
+            # Radial glow following cursor
+            r = 60
+            # Create oval glow — color varies based on x position
+            hue_shift = x / max(c.winfo_width(), 1)
+            # Blend between accent_dim and green based on position
+            glow.create_oval(
+                x - r, y - r, x + r, y + r,
+                fill=p.accent_dim, outline="", stipple="gray12",
+            )
+            # Subtle shine line
+            glow.create_line(
+                x - 30, y - 20, x + 30, y + 20,
+                fill=color, width=1, stipple="gray25",
+            )
+
+        def _on_leave(_event: tk.Event) -> None:
+            glow.delete("all")
+
+        for widget in (c, glow):
+            widget.bind("<Motion>", _on_motion)
+            widget.bind("<Leave>", _on_leave)
+
         ctk.CTkLabel(c, text=label, font=ctk.CTkFont(family=_F, size=9, weight="bold"),
                      text_color=p.muted).grid(row=0, column=0, padx=12, pady=(12, 0), sticky="w")
         ctk.CTkLabel(c, text=value, font=ctk.CTkFont(family=_F, size=20, weight="bold"),
@@ -543,6 +716,12 @@ class WhisperAppGUI(ctk.CTk):
             child.bind("<Enter>", _show)
             child.bind("<Leave>", _hide)
 
+    def _copy_text(self, text: str) -> None:
+        """Copy text to clipboard."""
+        import pyperclip
+        pyperclip.copy(text)
+        self.write_log("Copied to clipboard.")
+
     def _copy_bubble_text(self, text_label: ctk.CTkLabel, card: ctk.CTkFrame) -> None:
         """Copy bubble text to clipboard with visual feedback."""
         import pyperclip
@@ -667,6 +846,7 @@ class WhisperAppGUI(ctk.CTk):
             if n > 0:
                 self.after(0, self.write_log, f"Migrated {n} legacy transcripts.")
             success = self.controller.initialize_components()
+            self.after(0, self._hide_preloader)
             self.after(0, self.update_sidebar_info)
             self.after(0, self.update_metrics)
             if success:
@@ -728,19 +908,32 @@ class WhisperAppGUI(ctk.CTk):
 
         if "Recording" in status:
             self._is_recording = True
-            # Create a fresh bubble for this recording session
             self._create_bubble()
             self.status_pill.configure(text=f"  {display}  ",
                                         fg_color=p.pill_rec_bg, text_color=p.pill_rec_fg)
+            # Show recording orb in general tab
+            if self._current_tab == "general" and hasattr(self, "chat_frame"):
+                if self._recording_orb is None:
+                    self._recording_orb = RecordingOrb(
+                        self.chat_frame, audio_level_fn=self.controller._get_audio_level,
+                    )
+                self._recording_orb.show(self.chat_frame)
         elif any(k in status for k in ("Processing", "Loading", "Improving")):
+            # Hide orb during processing
+            if self._recording_orb:
+                self._recording_orb.hide()
             self.status_pill.configure(text=f"  {display}  ",
                                         fg_color=p.pill_proc_bg, text_color=p.pill_proc_fg)
         elif "Error" in status or "Failed" in status:
             self._is_recording = False
+            if self._recording_orb:
+                self._recording_orb.hide()
             self.status_pill.configure(text=f"  {display}  ",
                                         fg_color=p.pill_error_bg, text_color=p.pill_error_fg)
         else:
             # Ready / Text Ready — finalize the bubble
+            if self._recording_orb:
+                self._recording_orb.hide()
             if self._is_recording or self._live_bubble_text is not None:
                 self._is_recording = False
                 self._finalize_bubble()
