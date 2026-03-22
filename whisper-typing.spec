@@ -4,13 +4,26 @@ from PyInstaller.utils.hooks import collect_all
 datas = []
 binaries = []
 hiddenimports = ['pynput.keyboard._win32', 'pynput.mouse._win32']
-tmp_ret = collect_all('whisper_typing')
-datas += tmp_ret[0]; binaries += tmp_ret[1]; hiddenimports += tmp_ret[2]
-tmp_ret = collect_all('customtkinter')
-datas += tmp_ret[0]; binaries += tmp_ret[1]; hiddenimports += tmp_ret[2]
-tmp_ret = collect_all('openvino')
-datas += tmp_ret[0]; binaries += tmp_ret[1]; hiddenimports += tmp_ret[2]
 
+# Only bundle the lightweight app code + customtkinter UI
+for pkg in ('whisper_typing', 'customtkinter'):
+    try:
+        tmp = collect_all(pkg)
+        datas += tmp[0]; binaries += tmp[1]; hiddenimports += tmp[2]
+    except Exception:
+        pass
+
+# Exclude ALL heavy ML deps — they're installed at runtime via runtime_setup.py
+EXCLUDE_HEAVY = [
+    'torch', 'torchvision', 'torchaudio', 'torch._C', 'torch.cuda',
+    'caffe2', 'functorch',
+    'openvino', 'optimum', 'optimum_intel',
+    'transformers', 'tokenizers', 'safetensors',
+    'huggingface_hub', 'accelerate',
+    'onnxruntime', 'onnx',
+    'scipy', 'scipy.special',
+    'tqdm',
+]
 
 a = Analysis(
     ['src\\whisper_typing\\__main__.py'],
@@ -21,7 +34,7 @@ a = Analysis(
     hookspath=[],
     hooksconfig={},
     runtime_hooks=[],
-    excludes=[],
+    excludes=EXCLUDE_HEAVY,
     noarchive=False,
     optimize=0,
 )
@@ -32,7 +45,7 @@ exe = EXE(
     a.scripts,
     [],
     exclude_binaries=True,
-    name='whisper-typing',
+    name='LeroLero',
     debug=False,
     bootloader_ignore_signals=False,
     strip=False,
@@ -43,7 +56,7 @@ exe = EXE(
     target_arch=None,
     codesign_identity=None,
     entitlements_file=None,
-    icon='src/whisper_typing/assets/icon.png',
+    icon='src/whisper_typing/assets/icon.ico',
 )
 coll = COLLECT(
     exe,
@@ -52,5 +65,5 @@ coll = COLLECT(
     strip=False,
     upx=True,
     upx_exclude=[],
-    name='whisper-typing',
+    name='LeroLero',
 )
