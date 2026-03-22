@@ -110,20 +110,18 @@ class WhisperAppGUI(ctk.CTk):
         top.grid_columnconfigure(1, weight=1)
         top.grid_propagate(False)
 
-        # App icon in header
-        if self._icon_image is not None:
-            self.lbl_icon = ctk.CTkLabel(top, text="", image=self._icon_image, width=28)
-            self.lbl_icon.grid(row=0, column=0, padx=(14, 4), pady=10)
-        else:
-            self.lbl_icon = ctk.CTkLabel(top, text="\U0001f399",
-                                          font=ctk.CTkFont(size=22), text_color=p.text)
-            self.lbl_icon.grid(row=0, column=0, padx=(14, 4), pady=10)
+        # Logo + brand name in a single row
+        brand = ctk.CTkFrame(top, fg_color="transparent")
+        brand.grid(row=0, column=0, padx=(12, 0), pady=8, sticky="w")
 
-        # Brand name in Modak font
+        if self._icon_image is not None:
+            ctk.CTkLabel(brand, text="", image=self._icon_image, width=28).pack(
+                side="left", padx=(0, 6))
+
         _brand_font = "Modak" if self._modak_loaded else _F
-        ctk.CTkLabel(top, text="LeroLero",
+        ctk.CTkLabel(brand, text="LeroLero",
                      font=ctk.CTkFont(family=_brand_font, size=20),
-                     text_color=p.text).grid(row=0, column=0, padx=(48, 0), pady=10, sticky="w")
+                     text_color=p.text).pack(side="left")
 
         self.status_pill = ctk.CTkLabel(
             top, text="  Starting  ",
