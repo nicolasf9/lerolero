@@ -11,12 +11,15 @@ from whisper_typing.gui.app import WhisperAppGUI
 
 def main() -> None:
     """Run the whisper-typing application."""
+    # Configure logging to write debug information to a file
     logging.basicConfig(
         filename="whisper_typing_debug.log",
         level=logging.DEBUG,
         format="%(asctime)s %(name)s %(levelname)s %(message)s",
         force=True,
     )
+
+    # Set up command-line argument parsing
     parser = argparse.ArgumentParser(
         description="Whisper Typing - Background Speech to Text"
     )
@@ -28,13 +31,14 @@ def main() -> None:
     parser.add_argument("--api-key", help="Gemini API Key")
     args = parser.parse_args()
 
+    # Load environment variables from a .env file, overriding existing ones
     load_dotenv(override=True)
 
-    # Initialize Controller
+    # Initialize the application controller with configuration from command-line arguments
     controller = WhisperAppController()
     controller.load_configuration(args)
 
-    # Start Native GUI
+    # Start the native GUI application
     # The GUI will handle component initialization and starting the listener
     app = WhisperAppGUI(controller)
     app.mainloop()
