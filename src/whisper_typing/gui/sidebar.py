@@ -30,7 +30,6 @@ class SidebarItem:
 
 TABS = [
     SidebarItem("general", "\U0001f399", "Geral"),
-    SidebarItem("history", "\U0001f4dc", "Histórico"),
     SidebarItem("metrics", "\U0001f4ca", "Métricas"),
     SidebarItem("settings", "\u2699", "Configurações"),
     SidebarItem("about", "\u2139", "Sobre"),

@@ -351,8 +351,6 @@ class WhisperAppGUI(ctk.CTk):
 
         if key == "general":
             self._build_tab_general(p)
-        elif key == "history":
-            self._build_tab_history(p)
         elif key == "metrics":
             self._build_tab_metrics(p)
         elif key == "settings":
@@ -361,173 +359,176 @@ class WhisperAppGUI(ctk.CTk):
             self._build_tab_about(p)
 
     def _build_tab_general(self, p: object) -> None:
-        """General tab — chat bubbles + metrics strip."""
-        # Metrics strip at top
-        ms = ctk.CTkFrame(self._tab_frame, fg_color=p.surface2, corner_radius=0, height=32)
-        ms.grid(row=0, column=0, sticky="new")
-        ms.grid_columnconfigure(3, weight=1)
-        ms.grid_propagate(False)
+        """General tab — unified chat + history with search and app filter."""
+        # ── Top bar: metrics + search + filter ────────────────────────
+        top = ctk.CTkFrame(self._tab_frame, fg_color=p.surface2, corner_radius=0)
+        top.grid(row=0, column=0, sticky="new")
+        top.grid_columnconfigure(2, weight=1)
 
+        # Metrics
         _mf = ctk.CTkFont(family=_F, size=11, weight="bold")
         agg = aggregate()
-        self._gen_words = ctk.CTkLabel(ms, text=f"\U0001f4ac {agg.words_today:,} words", font=_mf, text_color=p.accent)
-        self._gen_words.grid(row=0, column=0, padx=(12, 8), pady=5, sticky="w")
-        self._gen_sessions = ctk.CTkLabel(ms, text=f"\U0001f3af {agg.sessions_today} sessions", font=_mf, text_color=p.muted)
-        self._gen_sessions.grid(row=0, column=1, padx=8, pady=5, sticky="w")
-        self._gen_saved = ctk.CTkLabel(ms, text=f"\u23f1 {format_duration(agg.time_saved_today_s)} saved", font=_mf, text_color=p.green)
-        self._gen_saved.grid(row=0, column=2, padx=8, pady=5, sticky="w")
-        streak_text = ""
-        if agg.streak_days > 1:
-            streak_text = f"\U0001f525 {agg.streak_days}-day streak!"
-        elif agg.streak_days == 1:
-            streak_text = "\U0001f31f Day 1!"
-        self._gen_streak = ctk.CTkLabel(ms, text=streak_text, font=_mf, text_color=p.gold)
-        self._gen_streak.grid(row=0, column=3, padx=8, pady=5, sticky="w")
+        self._gen_words = ctk.CTkLabel(top, text=f"\U0001f4ac {agg.words_today:,}", font=_mf, text_color=p.accent)
+        self._gen_words.grid(row=0, column=0, padx=(12, 6), pady=6, sticky="w")
+        self._gen_saved = ctk.CTkLabel(top, text=f"\u23f1 {format_duration(agg.time_saved_today_s)}", font=_mf, text_color=p.green)
+        self._gen_saved.grid(row=0, column=1, padx=6, pady=6, sticky="w")
+        # Placeholder for streak
+        self._gen_sessions = ctk.CTkLabel(top, text="", font=_mf, text_color=p.muted)
+        self._gen_streak = ctk.CTkLabel(top, text="", font=_mf, text_color=p.gold)
 
-        # Chat area
+        # Search bar
+        self._chat_search = ctk.CTkEntry(
+            top, placeholder_text="\U0001f50d Search...",
+            font=ctk.CTkFont(family=_F, size=12), height=30,
+            fg_color=p.surface, border_color=p.accent_dim, border_width=2,
+            corner_radius=8, width=180,
+        )
+        self._chat_search.grid(row=0, column=2, padx=6, pady=6, sticky="e")
+        self._chat_search.bind("<KeyRelease>", lambda _e: self._rebuild_chat_list())
+
+        # App filter dropdown
+        apps = self._get_unique_apps()
+        self._chat_filter_app = ctk.CTkComboBox(
+            top, values=["All apps"] + apps,
+            font=ctk.CTkFont(family=_F, size=11), height=30, width=140,
+            fg_color=p.surface, border_color=p.border, border_width=1,
+            button_color=p.border, button_hover_color=p.accent_dim,
+            dropdown_fg_color=p.surface, dropdown_text_color=p.text,
+            dropdown_hover_color=p.surface2, corner_radius=8,
+            command=lambda _v: self._rebuild_chat_list(),
+        )
+        self._chat_filter_app.grid(row=0, column=3, padx=(4, 12), pady=6, sticky="e")
+        self._chat_filter_app.set("All apps")
+
+        # Animated search border
+        self._search_glow_colors = [p.accent_dim, p.accent, p.accent_hover, p.accent]
+        self._search_glow_idx = 0
+        self._animate_search_glow()
+
+        # ── Chat/History area ─────────────────────────────────────────
         self.chat_frame = ctk.CTkScrollableFrame(self._tab_frame, fg_color="transparent", corner_radius=0)
         self.chat_frame.grid(row=1, column=0, sticky="nsew", padx=0, pady=0)
         self.chat_frame.grid_columnconfigure(0, weight=1)
         self._tab_frame.grid_rowconfigure(1, weight=1)
         self._chat_row = 0
 
-        # Restore saved messages
-        if self._chat_messages:
-            for msg in self._chat_messages:
-                if msg["type"] == "system":
-                    self._add_system_msg(msg["text"])
-                elif msg["type"] == "bubble":
-                    self._add_saved_bubble(msg["text"], msg.get("meta", ""), p)
-            self._live_bubble_text = None
-            self._live_bubble_meta = None
-        else:
-            self._empty_state = None
-            self._build_empty_state(p)
+        self._rebuild_chat_list()
 
-    def _build_tab_history(self, p: object) -> None:
-        """History tab — search + scrollable list."""
-        self._tab_frame.grid_rowconfigure(1, weight=1)
-
-        # Search bar
-        search_frame = ctk.CTkFrame(self._tab_frame, fg_color="transparent")
-        search_frame.grid(row=0, column=0, padx=16, pady=(12, 4), sticky="ew")
-        search_frame.grid_columnconfigure(0, weight=1)
-
-        self._hist_search = ctk.CTkEntry(
-            search_frame, placeholder_text="\U0001f50d Search transcriptions...",
-            font=ctk.CTkFont(family=_F, size=13), height=38,
-            fg_color=p.surface, border_color=p.accent_dim, border_width=2,
-            corner_radius=10,
-        )
-        self._hist_search.grid(row=0, column=0, sticky="ew")
-        self._hist_search.bind("<KeyRelease>", lambda e: self._filter_history())
-
-        # Animated glowing border for search bar
-        self._search_glow_colors = [p.accent_dim, p.accent, p.accent_hover, p.accent]
-        self._search_glow_idx = 0
-        self._animate_search_glow()
-
-        # Scrollable list
-        self._hist_list = ctk.CTkScrollableFrame(self._tab_frame, fg_color=p.bg, corner_radius=0)
-        self._hist_list.grid(row=1, column=0, sticky="nsew", padx=8, pady=4)
-        self._hist_list.grid_columnconfigure(0, weight=1)
-        self._load_history_entries(p)
-
-    def _load_history_entries(self, p: object, query: str = "") -> None:
-        """Load history entries into the history tab."""
-        for w in self._hist_list.winfo_children():
-            w.destroy()
-
+    def _get_unique_apps(self) -> list[str]:
+        """Extract unique window titles from history for the filter dropdown."""
         from whisper_typing.paths import get_history_dir
         hist_file = get_history_dir() / "transcripts.jsonl"
-        if not hist_file.exists():
-            ctk.CTkLabel(self._hist_list, text="No transcriptions yet.",
-                         font=ctk.CTkFont(family=_F, size=14),
-                         text_color=p.muted).grid(row=0, column=0, padx=20, pady=40)
+        apps = set()
+        if hist_file.exists():
+            try:
+                with hist_file.open("r", encoding="utf-8") as f:
+                    for line in f:
+                        try:
+                            data = json.loads(line)
+                            win = data.get("window", "")
+                            if win:
+                                # Shorten: "Google Chrome - Tab Name" → "Google Chrome"
+                                short = win.split(" - ")[0].strip() if " - " in win else win
+                                if short:
+                                    apps.add(short)
+                        except json.JSONDecodeError:
+                            pass
+            except OSError:
+                pass
+        return sorted(apps)[:20]
+
+    def _rebuild_chat_list(self) -> None:
+        """Rebuild the chat view: history entries + live session messages."""
+        p = Theme.get()
+        if not hasattr(self, "chat_frame") or not self.chat_frame.winfo_exists():
             return
 
+        for w in self.chat_frame.winfo_children():
+            w.destroy()
+        self._chat_row = 0
+
+        # Get filter values
+        query = ""
+        if hasattr(self, "_chat_search") and self._chat_search.winfo_exists():
+            query = self._chat_search.get().lower().strip()
+        app_filter = ""
+        if hasattr(self, "_chat_filter_app") and self._chat_filter_app.winfo_exists():
+            val = self._chat_filter_app.get()
+            if val != "All apps":
+                app_filter = val.lower()
+
+        # Load history entries
+        from whisper_typing.paths import get_history_dir
+        hist_file = get_history_dir() / "transcripts.jsonl"
         entries = []
-        try:
-            with hist_file.open("r", encoding="utf-8") as f:
-                for line in f:
-                    try:
-                        entries.append(json.loads(line))
-                    except json.JSONDecodeError:
-                        pass
-        except OSError:
-            pass
+        if hist_file.exists():
+            try:
+                with hist_file.open("r", encoding="utf-8") as f:
+                    for line in f:
+                        try:
+                            entries.append(json.loads(line))
+                        except json.JSONDecodeError:
+                            pass
+            except OSError:
+                pass
 
-        q = query.lower().strip()
-        for idx, data in enumerate(reversed(entries[-50:])):
-            text = data.get("text", "")
-            if q and q not in text.lower():
+        # Filter
+        filtered = []
+        for e in entries:
+            text = e.get("text", "")
+            win = e.get("window", "")
+            if query and query not in text.lower():
                 continue
-            ts = data.get("timestamp", "?")
-            words = len(text.split()) if text.strip() else 0
+            if app_filter and app_filter not in win.lower():
+                continue
+            filtered.append(e)
 
-            card = ctk.CTkFrame(self._hist_list, fg_color=p.surface, corner_radius=10,
-                                 border_width=1, border_color=p.border)
-            card.grid(row=idx, column=0, padx=4, pady=3, sticky="ew")
-            card.grid_columnconfigure(0, weight=1)
+        if not filtered and not self._chat_messages:
+            self._empty_state = None
+            self._build_empty_state(p)
+            return
 
-            # Spotlight glow canvas
-            spot = tk.Canvas(card, bg=p.surface, highlightthickness=0)
-            spot.place(relx=0, rely=0, relwidth=1, relheight=1)
-            spot.lower()
+        # Render history (most recent last, show last 50)
+        for data in filtered[-50:]:
+            text = data.get("text", "")
+            ts = data.get("timestamp", "")
+            win = data.get("window", "")
+            if not text.strip():
+                continue
 
-            def _spot_move(e: tk.Event, cv=spot) -> None:
-                cv.delete("all")
-                cv.create_oval(
-                    e.x - 80, e.y - 80, e.x + 80, e.y + 80,
-                    fill=p.accent_dim, outline="", stipple="gray12",
-                )
+            ts_short = ts[:16].replace("T", " ") if ts else ""
+            words = len(text.split())
+            meta_parts = [ts_short]
+            if words:
+                meta_parts.append(f"{words}w")
+            if win:
+                short_win = win.split(" - ")[0].strip() if " - " in win else win
+                meta_parts.append(f"\U0001f4bb {short_win}")
+            meta = "  \u00b7  ".join(meta_parts)
 
-            def _spot_leave(_e: tk.Event, cv=spot) -> None:
-                cv.delete("all")
+            self._add_saved_bubble(text, meta, p)
 
-            card.bind("<Motion>", _spot_move)
-            card.bind("<Leave>", _spot_leave)
-            spot.bind("<Motion>", _spot_move)
-            spot.bind("<Leave>", _spot_leave)
+        # Add live session messages (from current session, not yet in file)
+        for msg in self._chat_messages:
+            if msg["type"] == "system":
+                self._add_system_msg_no_save(msg["text"])
+            elif msg["type"] == "bubble":
+                self._add_saved_bubble(msg["text"], msg.get("meta", ""), p)
 
-            # Text
-            ctk.CTkLabel(card, text=text[:250] + ("..." if len(text) > 250 else ""),
-                         font=ctk.CTkFont(family=_F, size=13),
-                         text_color=p.text, wraplength=500,
-                         justify="left", anchor="nw").grid(
-                row=0, column=0, padx=14, pady=(10, 2), sticky="ew")
-
-            # Meta + copy button
-            meta_frame = ctk.CTkFrame(card, fg_color="transparent")
-            meta_frame.grid(row=1, column=0, padx=14, pady=(0, 10), sticky="ew")
-            meta_frame.grid_columnconfigure(0, weight=1)
-
-            meta_text = f"{ts[:16].replace('T', ' ')}  \u00b7  {words} words"
-            ctk.CTkLabel(meta_frame, text=meta_text,
-                         font=ctk.CTkFont(family=_M, size=10),
-                         text_color=p.muted_dim).grid(row=0, column=0, sticky="w")
-
-            # Copy button (always subtle, more visible on hover)
-            copy_btn = ctk.CTkButton(
-                meta_frame, text="\U0001f4cb", width=24, height=20,
-                font=ctk.CTkFont(size=11), fg_color="transparent",
-                hover_color=p.surface2, text_color=p.muted, corner_radius=4,
-                command=lambda t=text: self._copy_text(t),
-            )
-            copy_btn.grid(row=0, column=1, sticky="e")
+        # Scroll to bottom
+        try:
+            self.chat_frame._parent_canvas.yview_moveto(1.0)
+        except Exception:  # noqa: BLE001
+            pass
 
     def _animate_search_glow(self) -> None:
         """Cycle the search bar border color for a glowing effect."""
-        if not hasattr(self, "_hist_search") or not self._hist_search.winfo_exists():
+        if not hasattr(self, "_chat_search") or not self._chat_search.winfo_exists():
             return
         color = self._search_glow_colors[self._search_glow_idx % len(self._search_glow_colors)]
-        self._hist_search.configure(border_color=color)
+        self._chat_search.configure(border_color=color)
         self._search_glow_idx += 1
-        self._hist_search.after(800, self._animate_search_glow)
-
-    def _filter_history(self) -> None:
-        q = self._hist_search.get() if hasattr(self, "_hist_search") else ""
-        self._load_history_entries(Theme.get(), q)
+        self._chat_search.after(600, self._animate_search_glow)
 
     def _build_tab_metrics(self, p: object) -> None:
         """Metrics tab — cards + bar chart."""
@@ -871,6 +872,11 @@ class WhisperAppGUI(ctk.CTk):
             self._empty_state = None
 
     def _add_system_msg(self, text: str) -> None:
+        self._add_system_msg_no_save(text)
+        self._chat_messages.append({"type": "system", "text": text})
+
+    def _add_system_msg_no_save(self, text: str) -> None:
+        """Render a system message without saving to the message list."""
         p = Theme.get()
         if not hasattr(self, "chat_frame") or not self.chat_frame.winfo_exists():
             return
@@ -880,8 +886,6 @@ class WhisperAppGUI(ctk.CTk):
             text_color=p.muted, anchor="w",
         ).grid(row=self._chat_row, column=0, padx=60, pady=(12, 4), sticky="ew")
         self._chat_row += 1
-        # Save for tab switch restoration
-        self._chat_messages.append({"type": "system", "text": text})
 
     def _create_bubble(self) -> None:
         """Create a new chat bubble for the current recording session."""

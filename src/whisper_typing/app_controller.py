@@ -458,7 +458,11 @@ class WhisperAppController:
         try:
             history_dir = get_history_dir()
             history_file = history_dir / "transcripts.jsonl"
-            entry = {"timestamp": datetime.now(UTC).isoformat(), "text": text}
+            entry = {
+                "timestamp": datetime.now(UTC).isoformat(),
+                "text": text,
+                "window": self.last_target_window_title or "",
+            }
             with history_file.open("a", encoding="utf-8") as f:
                 f.write(json.dumps(entry, ensure_ascii=False) + "\n")
         except Exception as e:
