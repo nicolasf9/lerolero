@@ -350,15 +350,18 @@ class WhisperAppGUI(ctk.CTk):
         self._gen_sessions = ctk.CTkLabel(top, text="", font=_mf, text_color=p.muted)
         self._gen_streak = ctk.CTkLabel(top, text="", font=_mf, text_color=p.gold)
 
-        # Search bar
+        # Search bar with proper states
         self._chat_search = ctk.CTkEntry(
             top, placeholder_text="\U0001f50d Search...",
             font=ctk.CTkFont(family=_F, size=12), height=30,
-            fg_color=p.surface, border_color=p.accent_dim, border_width=2,
-            corner_radius=8, width=180,
+            fg_color=p.surface, border_color=p.border, border_width=1,
+            corner_radius=8, width=200,
         )
         self._chat_search.grid(row=0, column=2, padx=6, pady=6, sticky="e")
         self._chat_search.bind("<KeyRelease>", lambda _e: self._rebuild_chat_list())
+        # Focus/hover states
+        self._chat_search.bind("<FocusIn>", lambda _e: self._chat_search.configure(border_color=p.accent, border_width=2))
+        self._chat_search.bind("<FocusOut>", lambda _e: self._chat_search.configure(border_color=p.border, border_width=1))
 
         # App filter dropdown
         apps = self._get_unique_apps()
@@ -445,20 +448,29 @@ class WhisperAppGUI(ctk.CTk):
             except OSError:
                 pass
 
-        # Load metrics for duration data (index by timestamp prefix)
-        duration_map: dict[str, float] = {}
+        # Load metrics for duration data — match by close timestamp (within 10s)
+        metrics_list: list[dict] = []
         if metrics_file.exists():
             try:
                 with metrics_file.open("r", encoding="utf-8") as f:
                     for line in f:
                         try:
-                            m = json.loads(line)
-                            ts_key = m.get("timestamp", "")[:19]
-                            duration_map[ts_key] = m.get("recording_duration_s", 0)
+                            metrics_list.append(json.loads(line))
                         except json.JSONDecodeError:
                             pass
             except OSError:
                 pass
+
+        # Build lookup: for each transcript, find closest metric by timestamp
+        def _find_metric(ts: str) -> dict:
+            """Find metric entry closest to transcript timestamp."""
+            if not ts or not metrics_list:
+                return {}
+            ts_prefix = ts[:16]  # "2026-03-22T23:13"
+            for m in reversed(metrics_list):
+                if m.get("timestamp", "")[:16] == ts_prefix:
+                    return m
+            return {}
 
         # Filter
         filtered = []
@@ -486,7 +498,8 @@ class WhisperAppGUI(ctk.CTk):
 
             ts_short = ts[:16].replace("T", " ") if ts else ""
             words = len(text.split())
-            dur = duration_map.get(ts[:19], 0)
+            metric = _find_metric(ts)
+            dur = metric.get("recording_duration_s", 0)
             meta_parts = [ts_short]
             if dur > 0:
                 meta_parts.append(f"{dur:.1f}s")
