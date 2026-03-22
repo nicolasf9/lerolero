@@ -1,15 +1,22 @@
 """Main entry point for whisper-typing."""
 
 import argparse
+import logging
 
 from dotenv import load_dotenv
 
 from whisper_typing.app_controller import WhisperAppController
-from whisper_typing.tui.app import WhisperTui
+from whisper_typing.gui.app import WhisperAppGUI
 
 
 def main() -> None:
     """Run the whisper-typing application."""
+    logging.basicConfig(
+        filename="whisper_typing_debug.log",
+        level=logging.DEBUG,
+        format="%(asctime)s %(name)s %(levelname)s %(message)s",
+        force=True,
+    )
     parser = argparse.ArgumentParser(
         description="Whisper Typing - Background Speech to Text"
     )
@@ -27,10 +34,10 @@ def main() -> None:
     controller = WhisperAppController()
     controller.load_configuration(args)
 
-    # Start TUI
-    # The TUI will handle component initialization and starting the listener
-    app = WhisperTui(controller)
-    app.run()
+    # Start Native GUI
+    # The GUI will handle component initialization and starting the listener
+    app = WhisperAppGUI(controller)
+    app.mainloop()
 
 
 if __name__ == "__main__":
