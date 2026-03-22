@@ -92,6 +92,9 @@ source = ["whisper_typing"]
 [tool.hatch.build.targets.sdist]
 include = ["src"]
 
+[tool.hatch.build.targets.wheel]
+packages = ["src/whisper_typing"]
+
 [tool.ruff.lint]
 select = ["ALL"]
 ignore = ["COM812", "D203", "D213"]
