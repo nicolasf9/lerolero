@@ -10,7 +10,7 @@ from pathlib import Path
 
 logger = logging.getLogger(__name__)
 
-# Packages per backend (only what's NOT bundled in the exe)
+# Packages per backend
 _BACKEND_PACKAGES: dict[str, list[str]] = {
     "openvino": [
         "openvino>=2025.0",
@@ -49,17 +49,18 @@ _BACKEND_PACKAGES: dict[str, list[str]] = {
     ],
 }
 
-# Shared packages always needed
 _COMMON_PACKAGES = [
     "numpy>=1.26",
     "scipy>=1.12",
     "sounddevice>=0.5",
 ]
 
+# PyTorch CUDA index URL
+_PYTORCH_INDEX = "https://download.pytorch.org/whl/cu124"
+
 
 def _get_deps_dir() -> Path:
-    """Return the local packages directory — %APPDATA%/LeroLero/deps for stability."""
-    # Prefer AppData so deps survive app updates
+    """Return the local packages directory — %APPDATA%/LeroLero/deps."""
     appdata = os.environ.get("APPDATA")
     if appdata:
         deps_dir = Path(appdata) / "LeroLero" / "deps"
@@ -80,51 +81,66 @@ def _add_deps_to_path() -> None:
         sys.path.insert(0, deps_str)
 
 
-def _get_pip_executable() -> list[str]:
-    """Find the best way to run pip — handles frozen exe and normal Python."""
-    # Try using the current Python's pip module
+def _pip_install(packages: list[str], target: str, extra_args: list[str] | None = None) -> tuple[bool, str]:
+    """Install packages using pip as a library (works inside frozen exe).
+
+    Returns (success, error_message).
+    """
+    args = [
+        "install",
+        *packages,
+        "--target", target,
+        "--no-warn-script-location",
+        "--disable-pip-version-check",
+    ]
+    if extra_args:
+        args.extend(extra_args)
+
+    # Method 1: Use pip as a library (works in frozen exe)
     try:
+        from pip._internal.cli.main import main as pip_main
+        old_argv = sys.argv
+        sys.argv = ["pip"] + args
+        try:
+            result_code = pip_main(args)
+            return (result_code == 0, "" if result_code == 0 else f"pip returned code {result_code}")
+        finally:
+            sys.argv = old_argv
+    except ImportError:
+        pass
+
+    # Method 2: subprocess with sys.executable -m pip
+    try:
+        cmd = [sys.executable, "-m", "pip"] + args
         result = subprocess.run(
-            [sys.executable, "-m", "pip", "--version"],
-            capture_output=True, text=True, timeout=10,
+            cmd, capture_output=True, text=True, timeout=600,
+            creationflags=subprocess.CREATE_NO_WINDOW if sys.platform == "win32" else 0,
         )
         if result.returncode == 0:
-            return [sys.executable, "-m", "pip"]
+            return (True, "")
+        return (False, result.stderr[:200])
     except Exception:
         pass
 
-    # For frozen exe: try system Python
+    # Method 3: Find system Python
     for python in ["python", "python3", "py"]:
         try:
+            cmd = [python, "-m", "pip"] + args
             result = subprocess.run(
-                [python, "-m", "pip", "--version"],
-                capture_output=True, text=True, timeout=10,
+                cmd, capture_output=True, text=True, timeout=600,
+                creationflags=subprocess.CREATE_NO_WINDOW if sys.platform == "win32" else 0,
             )
             if result.returncode == 0:
-                return [python, "-m", "pip"]
+                return (True, "")
+            return (False, result.stderr[:200])
         except Exception:
             continue
 
-    # Last resort: try pip directly
-    for pip_cmd in ["pip", "pip3"]:
-        try:
-            result = subprocess.run(
-                [pip_cmd, "--version"],
-                capture_output=True, text=True, timeout=10,
-            )
-            if result.returncode == 0:
-                return [pip_cmd]
-        except Exception:
-            continue
-
-    raise RuntimeError(
-        "pip não encontrado. Instale Python de https://python.org\n"
-        "Marque 'Add Python to PATH' durante a instalação."
-    )
+    return (False, "pip não encontrado. Instale Python de https://python.org")
 
 
 def detect_gpu_simple() -> str:
-    """Lightweight GPU detection without importing heavy libraries."""
+    """Lightweight GPU detection using system commands."""
     import platform
 
     if platform.system() != "Windows":
@@ -134,6 +150,7 @@ def detect_gpu_simple() -> str:
         result = subprocess.run(
             ["wmic", "path", "win32_videocontroller", "get", "name"],
             capture_output=True, text=True, timeout=10,
+            creationflags=subprocess.CREATE_NO_WINDOW if sys.platform == "win32" else 0,
         )
         output = result.stdout.lower()
 
@@ -171,13 +188,7 @@ def check_deps_installed(backend: str) -> bool:
 def install_deps(backend: str, progress_callback=None) -> bool:
     """Install dependencies for the detected backend."""
     deps_dir = _get_deps_dir()
-
-    try:
-        pip_cmd = _get_pip_executable()
-    except RuntimeError as e:
-        if progress_callback:
-            progress_callback(str(e), -1)
-        return False
+    target = str(deps_dir)
 
     packages = _COMMON_PACKAGES + _BACKEND_PACKAGES.get(backend, _BACKEND_PACKAGES["cpu"])
 
@@ -189,36 +200,16 @@ def install_deps(backend: str, progress_callback=None) -> bool:
             progress_callback(f"Instalando {pkg_name}... ({i+1}/{total})", percent)
         logger.info("Installing %s to %s", pkg, deps_dir)
 
-        cmd = pip_cmd + [
-            "install", pkg,
-            "--target", str(deps_dir),
-            "--no-warn-script-location",
-            "--disable-pip-version-check",
-        ]
-
-        # For CUDA, use PyTorch index
+        # For CUDA torch, use special index
+        extra_args = None
         if backend == "cuda" and pkg_name in ("torch", "torchaudio"):
-            cmd.extend(["--index-url", "https://download.pytorch.org/whl/cu124"])
+            extra_args = ["--index-url", _PYTORCH_INDEX]
 
-        try:
-            result = subprocess.run(
-                cmd, capture_output=True, text=True, timeout=600,
-                creationflags=subprocess.CREATE_NO_WINDOW if sys.platform == "win32" else 0,
-            )
-            if result.returncode != 0:
-                logger.error("Failed to install %s: %s", pkg, result.stderr)
-                if progress_callback:
-                    progress_callback(f"Erro ao instalar {pkg_name}: {result.stderr[:100]}", -1)
-                return False
-        except subprocess.TimeoutExpired:
-            logger.error("Timeout installing %s", pkg)
+        success, error = _pip_install([pkg], target, extra_args)
+        if not success:
+            logger.error("Failed to install %s: %s", pkg, error)
             if progress_callback:
-                progress_callback(f"Timeout ao instalar {pkg_name}", -1)
-            return False
-        except Exception as e:
-            logger.error("Error installing %s: %s", pkg, e)
-            if progress_callback:
-                progress_callback(f"Erro: {e}", -1)
+                progress_callback(f"Erro ao instalar {pkg_name}: {error[:80]}", -1)
             return False
 
     if progress_callback:
