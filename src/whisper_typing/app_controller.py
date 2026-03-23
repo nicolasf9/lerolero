@@ -612,9 +612,9 @@ class WhisperAppController:
                 os._exit(0)
 
             menu = pystray.Menu(
-                pystray.MenuItem("Open Whisper", _on_open, default=True),
-                pystray.MenuItem("Pause / Resume", _on_pause),
-                pystray.MenuItem("Exit", _on_exit),
+                pystray.MenuItem("Abrir LeroLero", _on_open, default=True),
+                pystray.MenuItem("Pausar / Retomar", _on_pause),
+                pystray.MenuItem("Sair", _on_exit),
             )
             self.tray_icon = pystray.Icon("whisper-typing", image, "LeroLero", menu)
 
