@@ -158,18 +158,12 @@ class WhisperAppGUI(ctk.CTk):
         self.lbl_info = ctk.CTkLabel(bar, text="", font=ctk.CTkFont(family=_M, size=10), text_color=p.muted)
         self.lbl_info.grid(row=0, column=2, padx=8, sticky="e")
 
-        # Right controls
-        _bs = dict(height=28, font=ctk.CTkFont(family=_F, size=12),
-                   fg_color="transparent", hover_color=p.surface2,
-                   text_color=p.muted, corner_radius=6)
+        # Theme toggle only — minimize/close handled by OS window controls
         ctk.CTkButton(bar, text="\u263e" if Theme.is_dark() else "\u2600",
-                       width=28, command=self._toggle_theme, **_bs).grid(row=0, column=3, padx=2)
-        ctk.CTkButton(bar, text="\u2015", width=28,
-                       command=self.hide_window, **_bs).grid(row=0, column=4, padx=2)
-        ctk.CTkButton(bar, text="\u2715", width=28, height=28,
-                       font=ctk.CTkFont(size=12), fg_color="transparent",
-                       hover_color=p.close_hover, text_color=p.close_text,
-                       corner_radius=6, command=self.quit_app).grid(row=0, column=5, padx=2)
+                       width=28, height=28, font=ctk.CTkFont(family=_F, size=12),
+                       fg_color="transparent", hover_color=p.surface2,
+                       text_color=p.muted, corner_radius=6,
+                       command=self._toggle_theme).grid(row=0, column=3, padx=(4, 8))
 
         # ── Tab content area ─────────────────────────────────────────
         self._tab_frame = ctk.CTkFrame(content, fg_color=p.bg, corner_radius=0)
@@ -281,26 +275,8 @@ class WhisperAppGUI(ctk.CTk):
     # ── Dotted surface background ──────────────────────────────────────
 
     def _draw_dotted_bg(self, p: object) -> None:
-        """Draw a subtle static dotted grid behind tab content."""
-        bg_canvas = tk.Canvas(self._tab_frame, bg=p.bg, highlightthickness=0)
-        bg_canvas.place(relx=0, rely=0, relwidth=1, relheight=1)
-        tk.Widget.lower(bg_canvas)
-
-        r1, g1, b1 = int(p.bg[1:3], 16), int(p.bg[3:5], 16), int(p.bg[5:7], 16)
-        r2, g2, b2 = int(p.border[1:3], 16), int(p.border[3:5], 16), int(p.border[5:7], 16)
-        t = 0.15
-        dot_color = f"#{int(r1+(r2-r1)*t):02x}{int(g1+(g2-g1)*t):02x}{int(b1+(b2-b1)*t):02x}"
-        spacing = 24
-
-        def _redraw(_event: object = None) -> None:
-            bg_canvas.delete("all")
-            w = bg_canvas.winfo_width()
-            h = bg_canvas.winfo_height()
-            for x in range(0, w, spacing):
-                for y in range(0, h, spacing):
-                    bg_canvas.create_oval(x, y, x + 2, y + 2, fill=dot_color, outline="")
-
-        bg_canvas.bind("<Configure>", _redraw)
+        """No-op — dotted background removed to avoid covering content."""
+        pass
 
     # ── Tab navigation ─────────────────────────────────────────────────
 
