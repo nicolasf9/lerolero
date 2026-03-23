@@ -26,7 +26,7 @@ from urllib.request import urlopen
 logger = logging.getLogger(__name__)
 
 # Python embeddable download URL (Windows only)
-_PYTHON_VERSION = "3.12.8"
+_PYTHON_VERSION = "3.13.7"
 _PYTHON_EMBED_URL = f"https://www.python.org/ftp/python/{_PYTHON_VERSION}/python-{_PYTHON_VERSION}-embed-amd64.zip"
 _GET_PIP_URL = "https://bootstrap.pypa.io/get-pip.py"
 
