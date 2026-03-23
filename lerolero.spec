@@ -7,11 +7,11 @@ binaries = []
 hiddenimports = [
     'pynput.keyboard._win32', 'pynput.mouse._win32',
     'webview', 'clr_loader', 'pythonnet',
-    'pip', 'pip._internal', 'pip._vendor',
 ]
 
-# Bundle app code + webview + customtkinter (fallback) + pip (for runtime installs)
-for pkg in ('lerolero', 'customtkinter', 'webview', 'pip'):
+# Bundle app code + webview + customtkinter (fallback)
+# pip NOT bundled — embedded Python downloads it at runtime
+for pkg in ('lerolero', 'customtkinter', 'webview'):
     try:
         tmp = collect_all(pkg)
         datas += tmp[0]; binaries += tmp[1]; hiddenimports += tmp[2]
