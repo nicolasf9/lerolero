@@ -5,6 +5,7 @@ import json
 import logging
 import os
 import subprocess
+import sys
 import threading
 import time
 import winsound
@@ -210,8 +211,22 @@ class WhisperAppController:
 
                 # Use Parakeet if user selected a parakeet model
                 if model_id.startswith("parakeet") or "parakeet" in model_id:
+                    if not parakeet_available():
+                        self.log("Instalando Parakeet automaticamente...")
+                        try:
+                            import subprocess
+                            subprocess.check_call(
+                                [sys.executable, "-m", "pip", "install", "onnx-asr"],
+                                stdout=subprocess.PIPE, stderr=subprocess.PIPE,
+                            )
+                            self.log("Parakeet instalado com sucesso!")
+                        except Exception as e:
+                            self.log(f"Falha ao instalar Parakeet: {e}")
+                            self.log("Voltando para Whisper...")
+                            model_id = "openai/whisper-small"
+
                     if parakeet_available():
-                        self.log(f"Loading Parakeet ({model_id})...")
+                        self.log(f"Carregando Parakeet ({model_id})...")
                         self.transcriber = ParakeetTranscriber(
                             model_id=model_id,
                             language=self.config["language"],
@@ -219,8 +234,7 @@ class WhisperAppController:
                             download_root=self.config.get("model_cache_dir"),
                         )
                     else:
-                        self.log("Parakeet not installed. Install with: uv pip install 'lerolero[parakeet]'")
-                        self.log("Falling back to Whisper...")
+                        self.log("Parakeet indisponível. Usando Whisper...")
                         model_id = "openai/whisper-small"
                         self.transcriber = Transcriber(
                             model_id=model_id,
