@@ -84,23 +84,35 @@ export async function getMetrics(): Promise<Metrics> {
   const api = getApi();
   if (api) return api.get_metrics();
   return {
-    total_sessions: 0, total_words: 0, total_time_saved_s: 0,
-    avg_words_per_session: 0, avg_processing_s: 0,
-    sessions_today: 0, words_today: 0, time_saved_today_s: 0,
-    streak_days: 0, words_by_day: {},
+    total_sessions: 142, total_words: 5929, total_time_saved_s: 7800,
+    avg_words_per_session: 42, avg_processing_s: 3.2,
+    sessions_today: 12, words_today: 640, time_saved_today_s: 822,
+    streak_days: 3, words_by_day: { "2026-03-21": 180, "2026-03-22": 340, "2026-03-23": 640 },
   };
 }
 
 export async function getHistory(query = "", appFilter = ""): Promise<HistoryEntry[]> {
   const api = getApi();
   if (api) return api.get_history(query, appFilter);
-  return [];
+  // Dev mock data
+  const mock: HistoryEntry[] = [
+    { text: "Teste de transcrição longa para verificar que o card tem altura suficiente e não fica comprimido em 1 pixel. Esta mensagem deve ser completamente legível.", timestamp: "2026-03-23T08:30:00", window: "VS Code", duration: 5.2, words: 24 },
+    { text: "Outro teste mais curto.", timestamp: "2026-03-23T08:25:00", window: "Chrome - Google", duration: 2.1, words: 4 },
+    { text: "Configurações do sistema precisam ser verificadas antes do deploy final.", timestamp: "2026-03-23T08:20:00", window: "Discord", duration: 4.8, words: 9 },
+    { text: "Não se esqueça das animações que falamos do 21 First Dev que eu te enviei.", timestamp: "2026-03-23T00:47:00", window: "Claude Code", duration: 3.5, words: 15 },
+    { text: "Ok, vamos começar essa migração, então, refaça todo o app nessa stack que você está me sugerindo agora.", timestamp: "2026-03-23T00:10:00", window: "Claude Code", duration: 6.1, words: 18 },
+  ];
+  const q = query.toLowerCase();
+  return mock.filter(e =>
+    (!q || e.text.toLowerCase().includes(q)) &&
+    (!appFilter || e.window.includes(appFilter))
+  );
 }
 
 export async function getUniqueApps(): Promise<string[]> {
   const api = getApi();
   if (api) return api.get_unique_apps();
-  return [];
+  return ["VS Code", "Chrome - Google", "Discord", "Claude Code"];
 }
 
 export async function getStatus(): Promise<AppStatus> {

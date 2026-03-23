@@ -114,7 +114,7 @@ export function GeneralView({ status }: { status: AppStatus }) {
       <div
         ref={scrollRef}
         className="flex-1 overflow-y-auto"
-        style={{ padding: "16px 20px", display: "flex", flexDirection: "column", gap: 8 }}
+        style={{ padding: "20px 24px", display: "flex", flexDirection: "column", gap: 12 }}
       >
         {(status.is_recording || status.is_processing) && (
           <VoiceOrb isRecording={status.is_recording} isProcessing={status.is_processing} />

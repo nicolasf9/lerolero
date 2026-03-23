@@ -14,7 +14,8 @@ type Tab = "general" | "metrics" | "settings" | "about";
 
 export default function App() {
   const [activeTab, setActiveTab] = useState<Tab>("general");
-  const [loading, setLoading] = useState(true);
+  // Skip preloader in dev (no pywebview)
+  const [loading, setLoading] = useState(!!window.pywebview);
   const [status, setStatus] = useState<AppStatus>({
     status: "Loading", is_recording: false, is_processing: false,
     pending_text: null, model: "...", backend: "detecting...", hotkey: "...",
@@ -46,9 +47,9 @@ export default function App() {
         className="fixed inset-0 pointer-events-none"
         style={{
           zIndex: -1,
-          backgroundImage: "radial-gradient(circle, var(--accent) 1px, transparent 1px)",
-          backgroundSize: "20px 20px",
-          opacity: 0.06,
+          backgroundImage: "radial-gradient(circle, var(--accent) 0.8px, transparent 0.8px)",
+          backgroundSize: "24px 24px",
+          opacity: 0.12,
         }}
       />
 
