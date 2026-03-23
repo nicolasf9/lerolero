@@ -45,6 +45,11 @@ intel = [
   "optimum>=2.1.0",
   "optimum-intel>=1.27.0",
 ]
+# Parakeet v3 (NVIDIA NeMo) — faster alternative to Whisper, ONNX-based
+parakeet = [
+  "onnx-asr>=0.3.0",
+  "onnxruntime>=1.17.0",
+]
 # NVIDIA GPUs — torch + CUDA
 nvidia = [
   "transformers>=4.57.6",

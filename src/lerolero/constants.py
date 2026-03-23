@@ -24,5 +24,7 @@ WHISPER_MODELS: Final[list[tuple[str, str]]] = [
     ("Distil Medium En", "distil-whisper/distil-medium.en"),
     ("Distil Large v2", "distil-whisper/distil-large-v2"),
     ("Distil Large v3", "distil-whisper/distil-large-v3"),
+    # NVIDIA Parakeet (requires [parakeet] extra)
+    ("⚡ Parakeet v3 (600M) — 10-50x faster", "istupakov/parakeet-tdt-0.6b-v3-onnx"),
 ]
 

@@ -26,6 +26,7 @@ from lerolero.overlay_container import StatusOverlay
 from lerolero.paths import get_config_path, get_data_dir, get_history_dir
 from lerolero.text_cleaner import clean_transcript
 from lerolero.transcriber import Transcriber
+from lerolero.transcriber_parakeet import ParakeetTranscriber, is_available as parakeet_available
 from lerolero.window_manager import WindowManager
 
 logger = logging.getLogger(__name__)
@@ -203,16 +204,40 @@ class WhisperAppController:
                 or self.current_device != self.config.get("device", "cpu")
                 or self.current_compute_type != self.config.get("compute_type", "auto")
             ):
-                self.log(f"Loading Transcriber ({self.config['model']})...")
+                model_id = self.config["model"]
                 device = self.config.get("device", "cpu")
                 compute_type = self.config.get("compute_type", "auto")
-                self.transcriber = Transcriber(
-                    model_id=self.config["model"],
-                    language=self.config["language"],
-                    device=device,
-                    compute_type=compute_type,
-                    download_root=self.config.get("model_cache_dir"),
-                )
+
+                # Use Parakeet if user selected a parakeet model
+                if model_id.startswith("parakeet") or "parakeet" in model_id:
+                    if parakeet_available():
+                        self.log(f"Loading Parakeet ({model_id})...")
+                        self.transcriber = ParakeetTranscriber(
+                            model_id=model_id,
+                            language=self.config["language"],
+                            device=device,
+                            download_root=self.config.get("model_cache_dir"),
+                        )
+                    else:
+                        self.log("Parakeet not installed. Install with: uv pip install 'lerolero[parakeet]'")
+                        self.log("Falling back to Whisper...")
+                        model_id = "openai/whisper-small"
+                        self.transcriber = Transcriber(
+                            model_id=model_id,
+                            language=self.config["language"],
+                            device=device,
+                            compute_type=compute_type,
+                            download_root=self.config.get("model_cache_dir"),
+                        )
+                else:
+                    self.log(f"Loading Whisper ({model_id})...")
+                    self.transcriber = Transcriber(
+                        model_id=model_id,
+                        language=self.config["language"],
+                        device=device,
+                        compute_type=compute_type,
+                        download_root=self.config.get("model_cache_dir"),
+                    )
                 self.current_model_id = self.config["model"]
                 self.current_language = self.config["language"]
                 self.current_device = device

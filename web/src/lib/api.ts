@@ -71,7 +71,11 @@ export async function saveConfig(config: Record<string, unknown>): Promise<void>
 export async function getModels(): Promise<{ label: string; value: string }[]> {
   const api = getApi();
   if (api) return api.get_models();
-  return [{ label: "whisper-base", value: "openai/whisper-base" }];
+  return [
+    { label: "whisper-base", value: "openai/whisper-base" },
+    { label: "whisper-small", value: "openai/whisper-small" },
+    { label: "⚡ Parakeet v3 (10-50x faster)", value: "istupakov/parakeet-tdt-0.6b-v3-onnx" },
+  ];
 }
 
 export async function getInputDevices(): Promise<string[]> {
