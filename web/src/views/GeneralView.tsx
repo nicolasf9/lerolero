@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef, useCallback } from "react";
-import { Search } from "lucide-react";
+import { Search, Mic } from "lucide-react";
 import { ChatBubble } from "@/components/ChatBubble";
 import { VoiceOrb } from "@/components/ui/siri-voice-orb";
 import { getHistory, getMetrics, getUniqueApps, formatDuration, on, type HistoryEntry, type AppStatus, type Metrics } from "@/lib/api";
@@ -92,7 +92,7 @@ export function GeneralView({ status }: { status: AppStatus }) {
           <div className="flex flex-col items-center justify-center h-full text-center">
             <div className="w-16 h-16 rounded-full flex items-center justify-center mb-[var(--sp-4)]"
                  style={{ background: "var(--accent-subtle)" }}>
-              <Search size={24} style={{ color: "var(--accent)" }} />
+              <Mic size={28} style={{ color: "var(--accent)" }} />
             </div>
             <h2 className="text-lg font-semibold" style={{ color: "var(--text)" }}>Tudo pronto.</h2>
             <p className="text-[13px] mt-[var(--sp-2)] max-w-[280px]" style={{ color: "var(--text-secondary)" }}>

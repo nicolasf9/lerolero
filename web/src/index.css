@@ -108,8 +108,9 @@ body {
 
 /* Dotted surface background */
 .dotted-surface {
-  background-image: radial-gradient(circle at center, var(--border) 1px, transparent 1px);
-  background-size: 20px 20px;
+  background-image: radial-gradient(circle at center, var(--accent) 1px, transparent 1px);
+  background-size: 18px 18px;
+  opacity: 0.12;
 }
 
 /* Spotlight glow for cards */

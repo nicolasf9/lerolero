@@ -42,9 +42,9 @@ export default function App() {
   const toggleTheme = useCallback(() => setIsDark(d => !d), []);
 
   return (
-    <div className="flex h-full overflow-hidden" style={{ background: "var(--bg)" }}>
+    <div className="flex h-full w-full overflow-hidden" style={{ background: "var(--bg)" }}>
       {/* Dotted surface background */}
-      <div className="dotted-surface fixed inset-0 -z-10 pointer-events-none opacity-40" />
+      <div className="dotted-surface fixed inset-0 -z-10 pointer-events-none" />
 
       <Sidebar activeTab={activeTab} onTabChange={(t) => setActiveTab(t as Tab)} />
 
