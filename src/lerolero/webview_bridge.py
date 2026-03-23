@@ -290,6 +290,14 @@ def start_webview_app(controller: WhisperAppController) -> None:
     )
     api.set_window(window)
 
+    # Intercept window close: hide to tray instead of destroying
+    def _on_closing() -> bool:
+        """Return False to prevent window destruction; hide it instead."""
+        window.hide()
+        return False  # Prevent actual close
+
+    window.events.closing += _on_closing
+
     # Initialize controller in background
     def _init() -> None:
         n = backfill_from_transcripts()

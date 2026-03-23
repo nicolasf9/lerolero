@@ -37,7 +37,7 @@ export function Sidebar({ activeTab, onTabChange }: SidebarProps) {
               className="relative flex items-center gap-3 cursor-pointer"
               style={{
                 padding: "10px 14px",
-                borderRadius: "10px",
+                borderRadius: 0,
                 fontSize: "13px",
                 fontWeight: isActive ? 600 : 500,
                 color: isActive ? "#fff" : "var(--text-secondary)",
@@ -49,15 +49,15 @@ export function Sidebar({ activeTab, onTabChange }: SidebarProps) {
                 <motion.div
                   layoutId="sidebar-active-bg"
                   className="absolute inset-0 overflow-hidden"
-                  style={{ borderRadius: 10 }}
+                  style={{ borderRadius: 0 }}
                   transition={{ type: "spring", stiffness: 350, damping: 30 }}
                 >
-                  <div className="absolute inset-0" style={{ background: "var(--accent)", borderRadius: 10 }} />
+                  <div className="absolute inset-0" style={{ background: "var(--accent)", borderRadius: 0 }} />
                   <motion.div
                     className="absolute"
                     style={{
                       inset: -6,
-                      borderRadius: 16,
+                      borderRadius: 0,
                       background: "var(--accent)",
                       filter: "blur(14px)",
                     }}
@@ -75,7 +75,7 @@ export function Sidebar({ activeTab, onTabChange }: SidebarProps) {
                     animate={{ opacity: 1, scale: 1 }}
                     exit={{ opacity: 0, scale: 0.95 }}
                     className="absolute inset-0"
-                    style={{ background: "var(--surface2)", borderRadius: 10 }}
+                    style={{ background: "var(--surface2)", borderRadius: 0 }}
                   />
                 )}
               </AnimatePresence>

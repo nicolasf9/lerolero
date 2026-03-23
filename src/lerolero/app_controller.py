@@ -56,6 +56,7 @@ DEFAULT_CONFIG: dict[str, Any] = {
     "show_overlay": True,
     "live_typing": True,
     "theme": "dark",
+    "accent_color": "#a78bfa",
 }
 
 

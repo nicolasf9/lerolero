@@ -19,6 +19,7 @@
 
   /* Accent */
   --accent: #6c3fdb;
+  --accent-rgb: 108, 63, 219;
   --accent-hover: #5a2fc0;
   --accent-subtle: rgba(108, 63, 219, 0.08);
   --accent-glow: rgba(108, 63, 219, 0.15);
@@ -63,6 +64,7 @@
   --text-disabled: #404050;
 
   --accent: #a78bfa;
+  --accent-rgb: 167, 139, 250;
   --accent-hover: #c4b5fd;
   --accent-subtle: rgba(167, 139, 250, 0.08);
   --accent-glow: rgba(167, 139, 250, 0.12);

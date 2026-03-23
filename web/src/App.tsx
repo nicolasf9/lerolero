@@ -8,7 +8,8 @@ import { AboutView } from "./views/AboutView";
 import { Preloader } from "./components/ui/preloader";
 import { StatusPill } from "./components/StatusPill";
 import { Moon, Sun } from "lucide-react";
-import { on, getStatus, type AppStatus } from "./lib/api";
+import { on, getStatus, getConfig, type AppStatus } from "./lib/api";
+import { applyAccentColor } from "./views/SettingsView";
 
 type Tab = "general" | "metrics" | "settings" | "about";
 
@@ -25,6 +26,14 @@ export default function App() {
   useEffect(() => {
     document.documentElement.classList.toggle("dark", isDark);
   }, [isDark]);
+
+  // Load accent color from config on startup
+  useEffect(() => {
+    getConfig().then((c) => {
+      const accent = c.accent_color as string | undefined;
+      if (accent) applyAccentColor(accent);
+    });
+  }, []);
 
   useEffect(() => {
     const u1 = on("status_change", (s) => {
@@ -60,14 +69,15 @@ export default function App() {
         <header
           className="flex items-center shrink-0"
           style={{
-            padding: "8px 20px",
+            padding: "10px 24px",
             gap: 12,
             background: "var(--surface)",
             borderBottom: "1px solid var(--border)",
+            minHeight: 44,
           }}
         >
           <StatusPill status={status.status} isRecording={status.is_recording} />
-          <span style={{ fontSize: 11, fontFamily: "monospace", color: "var(--text-tertiary)" }}>
+          <span style={{ fontSize: 11, fontFamily: "monospace", color: "var(--text-tertiary)", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", minWidth: 0 }}>
             {status.model?.split("/").pop()} · {status.backend} · {status.hotkey}
           </span>
           <div style={{ flex: 1 }} />
