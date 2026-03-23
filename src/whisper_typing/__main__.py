@@ -115,9 +115,15 @@ def main() -> None:
     controller = WhisperAppController()
     controller.load_configuration(args)
 
-    from whisper_typing.gui.app import WhisperAppGUI
-    app = WhisperAppGUI(controller)
-    app.mainloop()
+    # Use React webview UI (new) or fall back to CTk (legacy)
+    try:
+        from whisper_typing.webview_bridge import start_webview_app
+        start_webview_app(controller)
+    except ImportError:
+        # Fallback to CustomTkinter GUI if webview not available
+        from whisper_typing.gui.app import WhisperAppGUI
+        app = WhisperAppGUI(controller)
+        app.mainloop()
 
 
 if __name__ == "__main__":

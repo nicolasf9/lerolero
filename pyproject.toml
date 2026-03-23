@@ -24,6 +24,7 @@ classifiers = [
 ]
 dependencies = [
   "customtkinter>=5.2.2",
+  "pywebview>=6.0",
   "huggingface_hub[hf_xet]>=0.20.0",
   "numpy>=2.4.1",
   "pillow>=12.1.1",

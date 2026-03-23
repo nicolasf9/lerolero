@@ -4,8 +4,8 @@
 
 *.egg-info
 __pycache__
-dist/
-build/
+/dist/
+/build/
 
 # === PRIVACY: never commit user data ===
 config.json
@@ -17,3 +17,4 @@ models/
 models/**
 *.log
 whisper_typing_debug.log
+web/node_modules/
