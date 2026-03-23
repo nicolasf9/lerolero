@@ -2,13 +2,28 @@
 
 from __future__ import annotations
 
+import ctypes
 import json
 import logging
+import os
+import sys
 import threading
 from dataclasses import asdict
 from typing import Any
 
 import webview
+
+
+def _set_windows_icon() -> None:
+    """Set the Windows taskbar icon to LeroLero's icon instead of Python's."""
+    if sys.platform != "win32":
+        return
+    try:
+        # Set AppUserModelID so Windows shows our icon in taskbar
+        app_id = "lerolero.lerolero.1.0"
+        ctypes.windll.shell32.SetCurrentProcessExplicitAppUserModelID(app_id)
+    except Exception:
+        pass
 
 from lerolero.app_controller import WhisperAppController
 from lerolero.constants import WHISPER_MODELS
@@ -203,11 +218,19 @@ def start_webview_app(controller: WhisperAppController) -> None:
     controller.on_log = _on_log
     controller.on_preview_update = _on_preview_update
 
+    # Set Windows taskbar icon
+    _set_windows_icon()
+
     # Find the built React app
     web_dist = Path(__file__).parent.parent.parent / "web" / "dist" / "index.html"
     if not web_dist.exists():
         # Try relative to exe
         web_dist = Path(__file__).parent / "web" / "dist" / "index.html"
+
+    # Find icon for window
+    icon_path = Path(__file__).parent / "assets" / "icon.ico"
+    if not icon_path.exists():
+        icon_path = Path(__file__).parent / "assets" / "icon.png"
 
     window = webview.create_window(
         "LeroLero",

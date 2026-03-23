@@ -158,6 +158,7 @@ export function GeneralView({ status }: { status: AppStatus }) {
             duration={entry.duration}
             words={entry.words}
             windowTitle={entry.window}
+            searchQuery={query}
           />
         ))}
 

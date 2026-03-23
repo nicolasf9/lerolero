@@ -1,4 +1,4 @@
-import { useState, useRef } from "react";
+import { useState, useRef, useMemo } from "react";
 import { Monitor, Copy, Check } from "lucide-react";
 
 interface ChatBubbleProps {
@@ -8,9 +8,41 @@ interface ChatBubbleProps {
   words: number;
   windowTitle: string;
   isLive?: boolean;
+  searchQuery?: string;
 }
 
-export function ChatBubble({ text, timestamp, duration, words, windowTitle, isLive }: ChatBubbleProps) {
+/** Highlight matching text segments */
+function HighlightText({ text, query }: { text: string; query: string }) {
+  if (!query || query.length < 2) return <>{text}</>;
+
+  const regex = new RegExp(`(${query.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")})`, "gi");
+  const parts = text.split(regex);
+
+  return (
+    <>
+      {parts.map((part, i) =>
+        regex.test(part) ? (
+          <mark
+            key={i}
+            style={{
+              background: "var(--accent)",
+              color: "#fff",
+              borderRadius: 3,
+              padding: "1px 3px",
+              fontWeight: 600,
+            }}
+          >
+            {part}
+          </mark>
+        ) : (
+          <span key={i}>{part}</span>
+        )
+      )}
+    </>
+  );
+}
+
+export function ChatBubble({ text, timestamp, duration, words, windowTitle, isLive, searchQuery }: ChatBubbleProps) {
   const [copied, setCopied] = useState(false);
   const [mousePos, setMousePos] = useState({ x: 0, y: 0 });
   const [isHovered, setIsHovered] = useState(false);
@@ -80,7 +112,7 @@ export function ChatBubble({ text, timestamp, duration, words, windowTitle, isLi
           opacity: isLive ? 0.6 : 1,
           letterSpacing: "-0.01em",
         }}>
-          {text || "..."}
+          {searchQuery ? <HighlightText text={text || "..."} query={searchQuery} /> : (text || "...")}
         </p>
 
         {/* Metadata */}
