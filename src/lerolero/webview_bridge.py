@@ -10,11 +10,11 @@ from typing import Any
 
 import webview
 
-from whisper_typing.app_controller import WhisperAppController
-from whisper_typing.constants import WHISPER_MODELS
-from whisper_typing.gui.personality import greeting, status_text
-from whisper_typing.metrics import aggregate, backfill_from_transcripts, format_duration
-from whisper_typing.paths import get_data_dir, get_history_dir
+from lerolero.app_controller import WhisperAppController
+from lerolero.constants import WHISPER_MODELS
+from lerolero.gui.personality import greeting, status_text
+from lerolero.metrics import aggregate, backfill_from_transcripts, format_duration
+from lerolero.paths import get_data_dir, get_history_dir
 
 logger = logging.getLogger(__name__)
 

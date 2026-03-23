@@ -68,7 +68,7 @@ issues = "https://github.com/nicolasf9/lerolero/issues"
 repository = "https://github.com/nicolasf9/lerolero"
 
 [project.gui-scripts]
-lerolero = "whisper_typing.__main__:main"
+lerolero = "lerolero.__main__:main"
 
 [dependency-groups]
 dev = [
@@ -88,13 +88,13 @@ fail_under = 100
 omit = ["*/__main__.py"]
 
 [tool.coverage.run]
-source = ["whisper_typing"]
+source = ["lerolero"]
 
 [tool.hatch.build.targets.sdist]
 include = ["src"]
 
 [tool.hatch.build.targets.wheel]
-packages = ["src/whisper_typing"]
+packages = ["src/lerolero"]
 
 [tool.ruff.lint]
 select = ["ALL"]
@@ -104,4 +104,4 @@ ignore = ["COM812", "D203", "D213"]
 "tests/*" = ["S101", "D"]
 
 ## pytorch index only needed if installing [nvidia] extras:
-## uv pip install "whisper-typing[nvidia]" --extra-index-url https://download.pytorch.org/whl/cu124
+## uv pip install "lerolero[nvidia]" --extra-index-url https://download.pytorch.org/whl/cu124

@@ -5,7 +5,7 @@ from __future__ import annotations
 import math
 import tkinter as tk
 
-from whisper_typing.gui.theme import Theme
+from lerolero.gui.theme import Theme
 
 
 class RecordingOrb:

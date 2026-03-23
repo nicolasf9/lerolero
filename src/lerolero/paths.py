@@ -43,7 +43,7 @@ def get_history_dir() -> Path:
 
 def get_log_path() -> Path:
     """Return path to debug log in AppData."""
-    return get_data_dir() / "whisper_typing_debug.log"
+    return get_data_dir() / "lerolero_debug.log"
 
 
 def migrate_legacy_data() -> int:

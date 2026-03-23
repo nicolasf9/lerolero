@@ -9,7 +9,7 @@ from dataclasses import asdict, dataclass, field
 from datetime import UTC, datetime, timedelta
 from pathlib import Path
 
-from whisper_typing.paths import get_history_dir
+from lerolero.paths import get_history_dir
 
 logger = logging.getLogger(__name__)
 

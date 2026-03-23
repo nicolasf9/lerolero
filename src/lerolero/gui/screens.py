@@ -3,9 +3,9 @@
 import customtkinter as ctk
 import sounddevice as sd
 
-from whisper_typing.app_controller import WhisperAppController
-from whisper_typing.constants import WHISPER_MODELS
-from whisper_typing.gui.theme import Theme
+from lerolero.app_controller import WhisperAppController
+from lerolero.constants import WHISPER_MODELS
+from lerolero.gui.theme import Theme
 
 _F = "Segoe UI"
 _M = "Consolas"

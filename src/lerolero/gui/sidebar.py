@@ -8,7 +8,7 @@ from pathlib import Path
 
 import customtkinter as ctk
 
-from whisper_typing.gui.theme import Theme
+from lerolero.gui.theme import Theme
 
 _W = 220
 _ITEM_H = 44

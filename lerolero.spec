@@ -6,7 +6,7 @@ binaries = []
 hiddenimports = ['pynput.keyboard._win32', 'pynput.mouse._win32']
 
 # Only bundle the lightweight app code + customtkinter UI
-for pkg in ('whisper_typing', 'customtkinter'):
+for pkg in ('lerolero', 'customtkinter'):
     try:
         tmp = collect_all(pkg)
         datas += tmp[0]; binaries += tmp[1]; hiddenimports += tmp[2]
@@ -26,7 +26,7 @@ EXCLUDE_HEAVY = [
 ]
 
 a = Analysis(
-    ['src\\whisper_typing\\__main__.py'],
+    ['src\\lerolero\\__main__.py'],
     pathex=['src'],
     binaries=binaries,
     datas=datas,
@@ -56,7 +56,7 @@ exe = EXE(
     target_arch=None,
     codesign_identity=None,
     entitlements_file=None,
-    icon='src/whisper_typing/assets/icon.ico',
+    icon='src/lerolero/assets/icon.ico',
 )
 coll = COLLECT(
     exe,

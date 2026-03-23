@@ -9,16 +9,16 @@ from pathlib import Path
 
 import customtkinter as ctk
 
-from whisper_typing.app_controller import WhisperAppController
-from whisper_typing.gui.personality import (
+from lerolero.app_controller import WhisperAppController
+from lerolero.gui.personality import (
     fun_comparison, greeting, log_emoji, mascot,
     milestone_message, status_text, time_comparison,
 )
-from whisper_typing.gui.recording_orb import RecordingOrb
-from whisper_typing.gui.screens import ConfigurationWindow
-from whisper_typing.gui.sidebar import Sidebar
-from whisper_typing.gui.theme import Theme
-from whisper_typing.metrics import aggregate, backfill_from_transcripts, format_duration
+from lerolero.gui.recording_orb import RecordingOrb
+from lerolero.gui.screens import ConfigurationWindow
+from lerolero.gui.sidebar import Sidebar
+from lerolero.gui.theme import Theme
+from lerolero.metrics import aggregate, backfill_from_transcripts, format_duration
 
 _F = "Segoe UI"
 _M = "Consolas"
@@ -366,7 +366,7 @@ class WhisperAppGUI(ctk.CTk):
 
     def _get_unique_apps(self) -> list[str]:
         """Extract unique window titles from history for the filter dropdown."""
-        from whisper_typing.paths import get_history_dir
+        from lerolero.paths import get_history_dir
         hist_file = get_history_dir() / "transcripts.jsonl"
         apps = set()
         if hist_file.exists():
@@ -408,7 +408,7 @@ class WhisperAppGUI(ctk.CTk):
                 app_filter = val.lower()
 
         # Load history entries + metrics for duration info
-        from whisper_typing.paths import get_history_dir
+        from lerolero.paths import get_history_dir
         hist_file = get_history_dir() / "transcripts.jsonl"
         metrics_file = get_history_dir() / "metrics.jsonl"
 
@@ -560,8 +560,8 @@ class WhisperAppGUI(ctk.CTk):
     def _build_tab_settings(self, p: object) -> None:
         """Settings tab — inline form (not a modal)."""
         import sounddevice as sd
-        from whisper_typing.constants import WHISPER_MODELS
-        from whisper_typing.paths import get_data_dir
+        from lerolero.constants import WHISPER_MODELS
+        from lerolero.paths import get_data_dir
 
         self._tab_frame.grid_rowconfigure(0, weight=1)
         self._tab_frame.grid_rowconfigure(1, weight=0)
@@ -1004,7 +1004,7 @@ class WhisperAppGUI(ctk.CTk):
         p = Theme.get()
         task = "translate" if self._is_translate else "transcribe"
         self.controller.config["whisper_task"] = task
-        from whisper_typing.app_controller import save_config
+        from lerolero.app_controller import save_config
         save_config(self.controller.config)
 
         if self._is_translate:
@@ -1038,7 +1038,7 @@ class WhisperAppGUI(ctk.CTk):
         Theme.toggle()
         ctk.set_appearance_mode("dark" if Theme.is_dark() else "light")
         self.controller.config["theme"] = "dark" if Theme.is_dark() else "light"
-        from whisper_typing.app_controller import save_config
+        from lerolero.app_controller import save_config
         save_config(self.controller.config)
         self._live_bubble_text = None
         self._live_bubble_meta = None

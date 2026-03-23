@@ -8,7 +8,7 @@ if (Test-Path $distPath) { Remove-Item -Path $distPath -Recurse -Force }
 Write-Host "Building $projectName..." -ForegroundColor Green
 Write-Host "This may take several minutes (bundling OpenVINO + Transformers)..." -ForegroundColor Yellow
 
-uv run pyinstaller "whisper-typing.spec" --noconfirm
+uv run pyinstaller "lerolero.spec" --noconfirm
 
 if ($LASTEXITCODE -ne 0) { Write-Host "Build failed!" -ForegroundColor Red; exit $LASTEXITCODE }
 

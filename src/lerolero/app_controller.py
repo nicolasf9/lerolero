@@ -19,14 +19,14 @@ import sounddevice as sd
 from PIL import Image
 from pynput import keyboard
 
-from whisper_typing.audio_capture import AudioRecorder
-from whisper_typing.context_prompts import get_prompt_for_process
-from whisper_typing.metrics import SessionMetric, save_metric
-from whisper_typing.overlay_container import StatusOverlay
-from whisper_typing.paths import get_config_path, get_data_dir, get_history_dir
-from whisper_typing.text_cleaner import clean_transcript
-from whisper_typing.transcriber import Transcriber
-from whisper_typing.window_manager import WindowManager
+from lerolero.audio_capture import AudioRecorder
+from lerolero.context_prompts import get_prompt_for_process
+from lerolero.metrics import SessionMetric, save_metric
+from lerolero.overlay_container import StatusOverlay
+from lerolero.paths import get_config_path, get_data_dir, get_history_dir
+from lerolero.text_cleaner import clean_transcript
+from lerolero.transcriber import Transcriber
+from lerolero.window_manager import WindowManager
 
 logger = logging.getLogger(__name__)
 

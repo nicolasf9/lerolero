@@ -12,7 +12,7 @@ def _show_setup_window() -> bool:
     """
     import tkinter as tk
 
-    from whisper_typing.runtime_setup import check_deps_installed, detect_gpu_simple
+    from lerolero.runtime_setup import check_deps_installed, detect_gpu_simple
 
     backend = detect_gpu_simple()
 
@@ -71,7 +71,7 @@ def _show_setup_window() -> bool:
         root.update()
 
     def run_install() -> None:
-        from whisper_typing.runtime_setup import install_deps
+        from lerolero.runtime_setup import install_deps
         success[0] = install_deps(backend, update_progress)
         root.after(500, root.destroy)
 
@@ -82,7 +82,7 @@ def _show_setup_window() -> bool:
 
 def main() -> None:
     """Run the LeroLero application."""
-    from whisper_typing.paths import get_log_path, migrate_legacy_data
+    from lerolero.paths import get_log_path, migrate_legacy_data
 
     # Migrate legacy data from cwd to AppData on first run
     migrate_legacy_data()
@@ -103,7 +103,7 @@ def main() -> None:
     args = parser.parse_args()
 
     # Ensure deps path is on sys.path (for frozen exe builds)
-    from whisper_typing.runtime_setup import _add_deps_to_path
+    from lerolero.runtime_setup import _add_deps_to_path
     _add_deps_to_path()
 
     # First-run: detect GPU and install ML deps if needed
@@ -111,17 +111,17 @@ def main() -> None:
         print("ERROR: Failed to install dependencies. Check your internet connection.")
         sys.exit(1)
 
-    from whisper_typing.app_controller import WhisperAppController
+    from lerolero.app_controller import WhisperAppController
     controller = WhisperAppController()
     controller.load_configuration(args)
 
     # Use React webview UI (new) or fall back to CTk (legacy)
     try:
-        from whisper_typing.webview_bridge import start_webview_app
+        from lerolero.webview_bridge import start_webview_app
         start_webview_app(controller)
     except ImportError:
         # Fallback to CustomTkinter GUI if webview not available
-        from whisper_typing.gui.app import WhisperAppGUI
+        from lerolero.gui.app import WhisperAppGUI
         app = WhisperAppGUI(controller)
         app.mainloop()
 
