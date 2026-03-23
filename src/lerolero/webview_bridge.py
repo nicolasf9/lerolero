@@ -271,11 +271,15 @@ def start_webview_app(controller: WhisperAppController) -> None:
     # Set Windows taskbar icon
     _set_windows_icon()
 
-    # Find the built React app
-    web_dist = Path(__file__).parent.parent.parent / "web" / "dist" / "index.html"
-    if not web_dist.exists():
-        # Try relative to exe
-        web_dist = Path(__file__).parent / "web" / "dist" / "index.html"
+    # Find the built React app — check multiple locations
+    _candidates = [
+        Path(__file__).parent.parent.parent / "web" / "dist" / "index.html",  # dev: src/../web/dist
+        Path(__file__).parent / "web_dist" / "index.html",  # frozen exe: _internal/lerolero/web_dist
+        Path(__file__).parent / "web" / "dist" / "index.html",  # alt layout
+    ]
+    if getattr(sys, "frozen", False):
+        _candidates.insert(0, Path(sys.executable).parent / "_internal" / "lerolero" / "web_dist" / "index.html")
+    web_dist = next((p for p in _candidates if p.exists()), _candidates[0])
 
     # Find icon for window
     icon_path = Path(__file__).parent / "assets" / "icon.ico"

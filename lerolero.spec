@@ -1,19 +1,32 @@
 # -*- mode: python ; coding: utf-8 -*-
 from PyInstaller.utils.hooks import collect_all
+import os
 
 datas = []
 binaries = []
-hiddenimports = ['pynput.keyboard._win32', 'pynput.mouse._win32']
+hiddenimports = [
+    'pynput.keyboard._win32', 'pynput.mouse._win32',
+    'webview', 'clr_loader', 'pythonnet',
+]
 
-# Only bundle the lightweight app code + customtkinter UI
-for pkg in ('lerolero', 'customtkinter'):
+# Bundle app code + webview + customtkinter (fallback)
+for pkg in ('lerolero', 'customtkinter', 'webview'):
     try:
         tmp = collect_all(pkg)
         datas += tmp[0]; binaries += tmp[1]; hiddenimports += tmp[2]
     except Exception:
         pass
 
-# Exclude ALL heavy ML deps — they're installed at runtime via runtime_setup.py
+# Include the React web/dist build
+web_dist = os.path.join('web', 'dist')
+if os.path.exists(web_dist):
+    datas += [(web_dist, os.path.join('lerolero', 'web_dist'))]
+
+# Include icon
+datas += [('src/lerolero/assets/icon.ico', 'lerolero/assets')]
+datas += [('src/lerolero/assets/icon.png', 'lerolero/assets')]
+
+# Exclude ALL heavy ML deps — installed at runtime via runtime_setup.py
 EXCLUDE_HEAVY = [
     'torch', 'torchvision', 'torchaudio', 'torch._C', 'torch.cuda',
     'caffe2', 'functorch',
