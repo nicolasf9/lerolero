@@ -13,8 +13,8 @@ interface ChatBubbleProps {
 export function ChatBubble({ text, timestamp, duration, words, windowTitle, isLive }: ChatBubbleProps) {
   const [copied, setCopied] = useState(false);
   const [mousePos, setMousePos] = useState({ x: 0, y: 0 });
-  const [hovering, setHovering] = useState(false);
-  const cardRef = useRef<HTMLDivElement>(null);
+  const [isHovered, setIsHovered] = useState(false);
+  const ref = useRef<HTMLDivElement>(null);
 
   const handleCopy = () => {
     navigator.clipboard.writeText(text);
@@ -23,60 +23,74 @@ export function ChatBubble({ text, timestamp, duration, words, windowTitle, isLi
   };
 
   const handleMouseMove = (e: React.MouseEvent) => {
-    if (!cardRef.current) return;
-    const rect = cardRef.current.getBoundingClientRect();
+    if (!ref.current) return;
+    const rect = ref.current.getBoundingClientRect();
     setMousePos({ x: e.clientX - rect.left, y: e.clientY - rect.top });
   };
 
-  const tsShort = timestamp?.slice(0, 16).replace("T", " ") || "";
+  const tsShort = timestamp?.slice(11, 16) || "";
+  const dateShort = timestamp?.slice(0, 10) || "";
   const shortWin = windowTitle?.includes(" - ") ? windowTitle.split(" - ")[0].trim() : (windowTitle || "");
 
   return (
     <div
-      ref={cardRef}
-      className="group relative rounded-xl border border-[var(--border)] bg-[var(--surface)] overflow-hidden transition-colors hover:border-[var(--accent-dim)]/40"
+      ref={ref}
+      className="group relative rounded-[var(--radius-lg)] overflow-hidden transition-all duration-200"
+      style={{
+        background: "var(--surface)",
+        border: "1px solid var(--border-subtle)",
+        boxShadow: isHovered ? "var(--shadow-md)" : "var(--shadow-sm)",
+      }}
       onMouseMove={handleMouseMove}
-      onMouseEnter={() => setHovering(true)}
-      onMouseLeave={() => setHovering(false)}
+      onMouseEnter={() => setIsHovered(true)}
+      onMouseLeave={() => setIsHovered(false)}
     >
-      {/* Spotlight glow */}
-      {hovering && (
+      {/* Spotlight glow — follows cursor */}
+      {isHovered && (
         <div
-          className="absolute pointer-events-none rounded-full w-[200px] h-[200px] -translate-x-1/2 -translate-y-1/2 opacity-10"
-          style={{
-            left: mousePos.x,
-            top: mousePos.y,
-            background: `radial-gradient(circle, var(--accent-dim), transparent 70%)`,
-          }}
+          className="spotlight-glow"
+          style={{ left: mousePos.x, top: mousePos.y, opacity: 1 }}
         />
       )}
 
-      <div className="relative z-10 px-4 py-3">
-        {/* Text */}
-        <p className={`text-sm leading-relaxed text-[var(--text)] ${isLive ? "animate-pulse" : ""}`}>
+      {/* Content */}
+      <div className="relative z-10 px-[var(--sp-4)] py-[var(--sp-3)]">
+        <p className={`text-[13px] leading-[1.6] ${isLive ? "opacity-70" : ""}`}
+           style={{ color: "var(--text)" }}>
           {text || "..."}
         </p>
 
-        {/* Meta row */}
-        <div className="flex items-center gap-2 mt-2 text-[11px] text-[var(--muted-dim)]">
-          {tsShort && <span>{tsShort}</span>}
-          {duration > 0 && <><span>·</span><span>{duration.toFixed(1)}s</span></>}
-          {words > 0 && <><span>·</span><span>{words} words</span></>}
+        {/* Metadata row */}
+        <div className="flex items-center gap-[var(--sp-2)] mt-[var(--sp-2)] flex-wrap">
+          {tsShort && (
+            <span className="text-[11px] font-mono" style={{ color: "var(--text-tertiary)" }}>
+              {dateShort !== new Date().toISOString().slice(0, 10) ? `${dateShort} ` : ""}{tsShort}
+            </span>
+          )}
+          {duration > 0 && (
+            <span className="text-[11px]" style={{ color: "var(--text-tertiary)" }}>
+              · {duration.toFixed(1)}s
+            </span>
+          )}
+          {words > 0 && (
+            <span className="text-[11px]" style={{ color: "var(--text-tertiary)" }}>
+              · {words} palavras
+            </span>
+          )}
           {shortWin && (
-            <>
-              <span>·</span>
-              <span className="flex items-center gap-1">
-                <Monitor size={11} /> {shortWin}
-              </span>
-            </>
+            <span className="inline-flex items-center gap-1 text-[11px]" style={{ color: "var(--text-tertiary)" }}>
+              · <Monitor size={10} strokeWidth={1.5} /> {shortWin}
+            </span>
           )}
           <div className="flex-1" />
-          {/* Copy button */}
           <button
             onClick={handleCopy}
-            className="opacity-0 group-hover:opacity-100 transition-opacity p-1 rounded hover:bg-[var(--surface2)]"
+            className="opacity-0 group-hover:opacity-100 transition-opacity p-1 rounded-[var(--radius-sm)] cursor-pointer"
+            style={{ color: "var(--text-tertiary)" }}
+            onMouseEnter={(e) => (e.currentTarget.style.background = "var(--surface2)")}
+            onMouseLeave={(e) => (e.currentTarget.style.background = "transparent")}
           >
-            {copied ? <Check size={13} className="text-[var(--green)]" /> : <Copy size={13} />}
+            {copied ? <Check size={13} style={{ color: "var(--success)" }} /> : <Copy size={13} />}
           </button>
         </div>
       </div>

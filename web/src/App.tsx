@@ -7,6 +7,7 @@ import { SettingsView } from "./views/SettingsView";
 import { AboutView } from "./views/AboutView";
 import { Preloader } from "./components/ui/preloader";
 import { StatusPill } from "./components/StatusPill";
+import { Moon, Sun } from "lucide-react";
 import { on, getStatus, type AppStatus } from "./lib/api";
 
 type Tab = "general" | "metrics" | "settings" | "about";
@@ -27,17 +28,13 @@ export default function App() {
   useEffect(() => {
     const unsub1 = on("status_change", (s) => {
       setStatus(prev => ({ ...prev, ...(s as Partial<AppStatus>) }));
-      if ((s as any).status === "Ready" || (s as any).status === "Error") {
-        setLoading(false);
-      }
+      if ((s as any).status === "Ready" || (s as any).status === "Error") setLoading(false);
     });
     const unsub2 = on("loading_done", () => setLoading(false));
-
     getStatus().then(s => {
       setStatus(s);
       if (s.status !== "Loading") setLoading(false);
     });
-
     const timer = setTimeout(() => setLoading(false), 30000);
     return () => { unsub1(); unsub2(); clearTimeout(timer); };
   }, []);
@@ -45,34 +42,41 @@ export default function App() {
   const toggleTheme = useCallback(() => setIsDark(d => !d), []);
 
   return (
-    <div className="flex h-screen overflow-hidden">
-      <div className="dotted-bg fixed inset-0 -z-10 pointer-events-none" />
+    <div className="flex h-full overflow-hidden" style={{ background: "var(--bg)" }}>
+      {/* Dotted surface background */}
+      <div className="dotted-surface fixed inset-0 -z-10 pointer-events-none opacity-40" />
 
       <Sidebar activeTab={activeTab} onTabChange={(t) => setActiveTab(t as Tab)} />
 
       <div className="flex-1 flex flex-col min-w-0">
-        <div className="flex items-center gap-3 px-4 py-2 border-b border-[var(--border)] bg-[var(--surface)]">
+        {/* Top bar */}
+        <header className="flex items-center gap-[var(--sp-3)] px-[var(--sp-4)] py-[var(--sp-2)] border-b"
+                style={{ background: "var(--surface)", borderColor: "var(--border)" }}>
           <StatusPill status={status.status} isRecording={status.is_recording} />
-          <span className="text-xs font-mono text-[var(--muted)]">
+          <span className="text-[11px] font-mono" style={{ color: "var(--text-tertiary)" }}>
             {status.model?.split("/").pop()} · {status.backend} · {status.hotkey}
           </span>
           <div className="flex-1" />
           <button
             onClick={toggleTheme}
-            className="w-8 h-8 rounded-lg flex items-center justify-center text-[var(--muted)] hover:bg-[var(--surface2)] transition-colors"
+            className="w-8 h-8 rounded-[var(--radius-sm)] flex items-center justify-center transition-colors cursor-pointer"
+            style={{ color: "var(--text-tertiary)" }}
+            onMouseEnter={(e) => (e.currentTarget.style.background = "var(--surface2)")}
+            onMouseLeave={(e) => (e.currentTarget.style.background = "transparent")}
           >
-            {isDark ? "☽" : "☀"}
+            {isDark ? <Moon size={15} /> : <Sun size={15} />}
           </button>
-        </div>
+        </header>
 
-        <div className="flex-1 overflow-hidden relative">
+        {/* Tab content with animation */}
+        <main className="flex-1 overflow-hidden relative">
           <AnimatePresence mode="wait">
             <motion.div
               key={activeTab}
-              initial={{ opacity: 0, y: 8 }}
+              initial={{ opacity: 0, y: 6 }}
               animate={{ opacity: 1, y: 0 }}
-              exit={{ opacity: 0, y: -8 }}
-              transition={{ duration: 0.15 }}
+              exit={{ opacity: 0, y: -6 }}
+              transition={{ duration: 0.12, ease: "easeOut" }}
               className="absolute inset-0"
             >
               {activeTab === "general" && <GeneralView status={status} />}
@@ -81,17 +85,14 @@ export default function App() {
               {activeTab === "about" && <AboutView />}
             </motion.div>
           </AnimatePresence>
-        </div>
+        </main>
       </div>
 
+      {/* Preloader */}
       <AnimatePresence>
         {loading && (
-          <motion.div
-            initial={{ opacity: 1 }}
-            exit={{ opacity: 0 }}
-            transition={{ duration: 0.5 }}
-            className="fixed inset-0 z-50"
-          >
+          <motion.div initial={{ opacity: 1 }} exit={{ opacity: 0 }} transition={{ duration: 0.4 }}
+                      className="fixed inset-0 z-50">
             <Preloader model={status.model} />
           </motion.div>
         )}

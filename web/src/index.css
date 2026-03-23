@@ -3,75 +3,157 @@
 @custom-variant dark (&:where(.dark, .dark *));
 
 :root {
-  --bg: #f5f5f7;
+  /* Surface hierarchy */
+  --bg: #f8f8fa;
   --surface: #ffffff;
-  --surface2: #eaeaef;
-  --border: #d0d0d8;
+  --surface2: #f0f0f5;
+  --surface3: #e8e8ef;
+  --border: #d4d4dc;
+  --border-subtle: #e8e8ef;
+
+  /* Text hierarchy */
   --text: #111115;
-  --muted: #4a4a5c;
-  --muted-dim: #7a7a90;
-  --accent: #4c2fbd;
-  --accent-dim: #6d4de0;
-  --accent-hover: #3a1fa8;
-  --green: #059669;
-  --red: #dc2626;
-  --gold: #b45309;
+  --text-secondary: #4a4a5c;
+  --text-tertiary: #7a7a90;
+  --text-disabled: #b0b0c0;
+
+  /* Accent */
+  --accent: #6c3fdb;
+  --accent-hover: #5a2fc0;
+  --accent-subtle: rgba(108, 63, 219, 0.08);
+  --accent-glow: rgba(108, 63, 219, 0.15);
+
+  /* Semantic */
+  --success: #059669;
+  --success-subtle: rgba(5, 150, 105, 0.08);
+  --danger: #dc2626;
+  --danger-subtle: rgba(220, 38, 38, 0.08);
+  --warning: #d97706;
+  --warning-subtle: rgba(217, 119, 6, 0.08);
+
+  /* Spacing scale (4px base) */
+  --sp-1: 4px; --sp-2: 8px; --sp-3: 12px; --sp-4: 16px;
+  --sp-5: 20px; --sp-6: 24px; --sp-8: 32px; --sp-10: 40px;
+  --sp-12: 48px; --sp-16: 64px;
+
+  /* Radius */
+  --radius-sm: 6px;
+  --radius-md: 10px;
+  --radius-lg: 14px;
+  --radius-xl: 20px;
+  --radius-full: 9999px;
+
+  /* Shadows */
+  --shadow-sm: 0 1px 2px rgba(0,0,0,0.04);
+  --shadow-md: 0 2px 8px rgba(0,0,0,0.06);
+  --shadow-lg: 0 4px 16px rgba(0,0,0,0.08);
 }
 
 .dark {
-  --bg: #0a0a0c;
-  --surface: #111115;
-  --surface2: #18181d;
-  --border: #222228;
-  --text: #e0e0e6;
-  --muted: #a3a3bc;
-  --muted-dim: #6e6e84;
-  --accent: #b4a0ff;
-  --accent-dim: #7c5cfc;
-  --accent-hover: #c4b8ff;
-  --green: #34d399;
-  --red: #f87171;
-  --gold: #fbbf24;
+  --bg: #09090b;
+  --surface: #111114;
+  --surface2: #18181c;
+  --surface3: #1f1f25;
+  --border: #2a2a32;
+  --border-subtle: #1f1f28;
+
+  --text: #ededf0;
+  --text-secondary: #a0a0b8;
+  --text-tertiary: #6b6b80;
+  --text-disabled: #404050;
+
+  --accent: #a78bfa;
+  --accent-hover: #c4b5fd;
+  --accent-subtle: rgba(167, 139, 250, 0.08);
+  --accent-glow: rgba(167, 139, 250, 0.12);
+
+  --success: #34d399;
+  --success-subtle: rgba(52, 211, 153, 0.08);
+  --danger: #f87171;
+  --danger-subtle: rgba(248, 113, 113, 0.08);
+  --warning: #fbbf24;
+  --warning-subtle: rgba(251, 191, 36, 0.08);
+
+  --shadow-sm: 0 1px 2px rgba(0,0,0,0.2);
+  --shadow-md: 0 2px 8px rgba(0,0,0,0.3);
+  --shadow-lg: 0 4px 16px rgba(0,0,0,0.4);
 }
 
-* {
-  margin: 0;
-  padding: 0;
-  box-sizing: border-box;
+*, *::before, *::after {
+  margin: 0; padding: 0; box-sizing: border-box;
+}
+
+html, body, #root {
+  height: 100%;
+  overflow: hidden;
 }
 
 body {
   background: var(--bg);
   color: var(--text);
-  font-family: 'Segoe UI Variable', 'Segoe UI', system-ui, sans-serif;
-  overflow: hidden;
-  height: 100vh;
+  font-family: 'Inter', 'Segoe UI Variable', 'Segoe UI', system-ui, -apple-system, sans-serif;
+  font-size: 14px;
+  line-height: 1.5;
   -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
 }
 
-#root {
-  height: 100vh;
-  display: flex;
-}
+#root { display: flex; }
 
+/* Scrollbar */
 ::-webkit-scrollbar { width: 6px; }
 ::-webkit-scrollbar-track { background: transparent; }
 ::-webkit-scrollbar-thumb { background: var(--border); border-radius: 3px; }
-::-webkit-scrollbar-thumb:hover { background: var(--muted-dim); }
+::-webkit-scrollbar-thumb:hover { background: var(--text-tertiary); }
 
+/* Dotted surface background */
+.dotted-surface {
+  background-image: radial-gradient(circle at center, var(--border) 1px, transparent 1px);
+  background-size: 20px 20px;
+}
+
+/* Spotlight glow for cards */
+.spotlight-glow {
+  position: absolute; pointer-events: none; border-radius: 50%;
+  width: 300px; height: 300px;
+  transform: translate(-50%, -50%);
+  background: radial-gradient(circle, var(--accent-glow) 0%, transparent 70%);
+  opacity: 0; transition: opacity 0.3s ease;
+}
+.group:hover .spotlight-glow { opacity: 1; }
+
+/* Glow search border */
+@property --glow-angle {
+  syntax: '<angle>';
+  inherits: false;
+  initial-value: 0deg;
+}
+.glow-border {
+  border: 2px solid transparent;
+  background-image: linear-gradient(var(--surface), var(--surface)),
+    conic-gradient(from var(--glow-angle), var(--accent) 0%, transparent 20%, transparent 50%, var(--accent) 70%, transparent 100%);
+  background-origin: border-box;
+  background-clip: padding-box, border-box;
+  animation: glow-rotate 4s linear infinite;
+}
+.glow-border:focus-within {
+  animation-duration: 2s;
+}
+@keyframes glow-rotate {
+  to { --glow-angle: 360deg; }
+}
+
+/* Holographic shimmer */
+@keyframes holo-shimmer {
+  0% { background-position: 200% 0; }
+  100% { background-position: -200% 0; }
+}
+
+/* Pulse ring animation */
 @keyframes pulse-ring {
   0% { transform: scale(1); opacity: 0.6; }
-  100% { transform: scale(2); opacity: 0; }
+  100% { transform: scale(2.2); opacity: 0; }
 }
 
-@keyframes shine {
-  0% { transform: translateX(-100%); }
-  50% { transform: translateX(100%); }
-  100% { transform: translateX(-100%); }
-}
-
-.dotted-bg {
-  background-image: radial-gradient(circle, var(--border) 1px, transparent 1px);
-  background-size: 24px 24px;
-  opacity: 0.3;
-}
+/* Preloader spin */
+@keyframes spin { to { transform: rotate(360deg); } }
