@@ -26,8 +26,9 @@ export function GeneralView({ status }: { status: AppStatus }) {
     return () => { u1(); u2(); };
   }, [loadData]);
 
+  // Keep scroll at top (newest messages first)
   useEffect(() => {
-    if (scrollRef.current) scrollRef.current.scrollTop = scrollRef.current.scrollHeight;
+    if (scrollRef.current) scrollRef.current.scrollTop = 0;
   }, [entries, liveText]);
 
   return (
@@ -148,7 +149,8 @@ export function GeneralView({ status }: { status: AppStatus }) {
           </div>
         )}
 
-        {entries.map((entry, i) => (
+        {/* Newest first */}
+        {[...entries].reverse().map((entry, i) => (
           <ChatBubble
             key={`${entry.timestamp}-${i}`}
             text={entry.text}

@@ -47,6 +47,8 @@ export function ChatBubble({ text, timestamp, duration, words, windowTitle, isLi
         border: `1px solid ${isHovered ? "var(--accent)" : "var(--border-subtle)"}`,
         boxShadow: isHovered ? "0 4px 20px rgba(167,139,250,0.08)" : "var(--shadow-sm)",
         transition: "border-color 0.2s, box-shadow 0.2s",
+        flexShrink: 0,
+        minHeight: 60,
       }}
     >
       {/* Spotlight glow — follows cursor */}
