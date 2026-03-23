@@ -8,7 +8,6 @@ import subprocess
 import sys
 import threading
 import time
-import winsound
 from collections.abc import Callable
 from datetime import UTC, datetime
 from pathlib import Path
@@ -414,41 +413,10 @@ class WhisperAppController:
             self._stop_lock.release()
 
     def _update_startup_shortcut(self) -> None:
-        if os.name != "nt":
-            return
-
         run_at_startup = self.config.get("run_at_startup", False)
-        shortcut_name = "WhisperTyping.lnk"
-        appdata = os.environ["APPDATA"]
-        startup_dir = (
-            Path(appdata) / "Microsoft" / "Windows" / "Start Menu"
-            / "Programs" / "Startup"
-        )
-        shortcut_path = startup_dir / shortcut_name
-        batch_path = Path.cwd() / "run_whisper.bat"
-
         try:
-            if run_at_startup:
-                if not batch_path.exists():
-                    return
-                lnk = str(shortcut_path)
-                target = str(batch_path)
-                work_dir = str(Path.cwd())
-                ps_script = (
-                    "$s = (New-Object -ComObject WScript.Shell)"
-                    f'.CreateShortcut("{lnk}"); '
-                    f'$s.TargetPath = "{target}"; '
-                    f'$s.WorkingDirectory = "{work_dir}"; '
-                    "$s.Save()"
-                )
-                sys_root = os.environ["SYSTEMROOT"]
-                pwsh = Path(sys_root) / "System32" / "WindowsPowerShell" / "v1.0" / "powershell.exe"
-                subprocess.run(  # noqa: S603
-                    [str(pwsh), "-Command", ps_script],
-                    check=True, capture_output=True,
-                )
-            elif shortcut_path.exists():
-                shortcut_path.unlink()
+            from lerolero.platform import get_platform
+            get_platform().update_startup_shortcut(run_at_startup)
         except Exception as e:
             self.log(f"Error updating startup shortcut: {e}")
             logger.exception("Error updating startup shortcut")
@@ -582,7 +550,8 @@ class WhisperAppController:
     def _play_beep(self, frequency: int, duration: int) -> None:
         def beep() -> None:
             with contextlib.suppress(Exception):
-                winsound.Beep(frequency, duration)
+                from lerolero.platform import get_platform
+                get_platform().play_beep(frequency, duration)
         threading.Thread(target=beep, daemon=True).start()
 
     def _auto_paste(self, text: str) -> None:
@@ -596,7 +565,10 @@ class WhisperAppController:
             else:
                 time.sleep(0.2)
             kb = keyboard.Controller()
-            with kb.pressed(keyboard.Key.ctrl):
+            from lerolero.platform import get_platform
+            mod_name = get_platform().get_paste_modifier()
+            mod_key = keyboard.Key.cmd if mod_name == "cmd" else keyboard.Key.ctrl
+            with kb.pressed(mod_key):
                 time.sleep(0.05)
                 kb.press("v")
                 time.sleep(0.05)

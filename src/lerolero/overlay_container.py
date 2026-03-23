@@ -80,8 +80,17 @@ class StatusOverlay:
         root.geometry(f"{_WIN_SIZE}x{_WIN_SIZE}+{x_pos}+{_PAD}")
         root.resizable(False, False)
 
-        # Make background transparent on Windows
-        root.wm_attributes("-transparentcolor", _BG)
+        # Make background transparent (platform-specific)
+        import sys
+        if sys.platform == "win32":
+            root.wm_attributes("-transparentcolor", _BG)
+        elif sys.platform == "darwin":
+            try:
+                root.wm_attributes("-transparent", True)
+                root.config(bg="systemTransparent")
+            except Exception:
+                pass
+        # Linux: no reliable transparency without compositing — skip gracefully
 
         self.canvas = tk.Canvas(
             root, width=_WIN_SIZE, height=_WIN_SIZE,

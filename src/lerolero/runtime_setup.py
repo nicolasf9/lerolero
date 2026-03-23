@@ -159,8 +159,47 @@ def _download_file(url: str, desc: str, progress_callback=None) -> bytes:
         raise RuntimeError(f"Falha ao baixar {desc}: {e}") from e
 
 
+def _get_system_python() -> Path | None:
+    """Find system Python on macOS/Linux."""
+    for name in ["python3", "python"]:
+        try:
+            result = subprocess.run(
+                [name, "--version"], capture_output=True, text=True, timeout=5,
+            )
+            if result.returncode == 0:
+                # Verify it has pip
+                pip_check = subprocess.run(
+                    [name, "-m", "pip", "--version"], capture_output=True, timeout=5,
+                )
+                if pip_check.returncode == 0:
+                    import shutil
+                    path = shutil.which(name)
+                    if path:
+                        return Path(path)
+        except Exception:
+            continue
+    return None
+
+
 def _install_embedded_python(progress_callback=None) -> Path:
-    """Download and extract Python embeddable to AppData."""
+    """Get a Python with pip for installing deps.
+
+    Windows: Downloads Python embeddable + bootstraps pip.
+    macOS/Linux: Uses system Python (must have pip).
+    """
+    # On macOS/Linux, just use system Python
+    if sys.platform != "win32":
+        system_py = _get_system_python()
+        if system_py:
+            _log_to_file(f"Using system Python: {system_py}")
+            return system_py
+        # If running as frozen app, try sys.executable
+        if not getattr(sys, "frozen", False):
+            return Path(sys.executable)
+        raise RuntimeError(
+            "Python não encontrado. Instale Python 3.10+ de https://python.org"
+        )
+
     python_dir = _get_python_dir()
     python_exe = python_dir / "python.exe"
 
@@ -265,40 +304,37 @@ def _add_deps_to_path() -> None:
     deps_str = str(deps_dir)
     if deps_dir.exists() and deps_str not in sys.path:
         sys.path.insert(0, deps_str)
-        # Also set for DLL loading on Windows
         if sys.platform == "win32":
+            # DLL loading on Windows
             os.add_dll_directory(deps_str)
-            # Add bin subdirs for openvino DLLs
             for sub in ["openvino/libs", "Library/bin"]:
                 dll_dir = deps_dir / sub
                 if dll_dir.exists():
                     os.add_dll_directory(str(dll_dir))
+        elif sys.platform == "linux":
+            # Shared library path on Linux
+            ld_path = os.environ.get("LD_LIBRARY_PATH", "")
+            new_paths = [deps_str]
+            for sub in ["openvino/libs"]:
+                lib_dir = deps_dir / sub
+                if lib_dir.exists():
+                    new_paths.append(str(lib_dir))
+            os.environ["LD_LIBRARY_PATH"] = ":".join(new_paths) + (":" + ld_path if ld_path else "")
+        elif sys.platform == "darwin":
+            # macOS dynamic library path
+            dyld_path = os.environ.get("DYLD_LIBRARY_PATH", "")
+            if dyld_path:
+                os.environ["DYLD_LIBRARY_PATH"] = deps_str + ":" + dyld_path
+            else:
+                os.environ["DYLD_LIBRARY_PATH"] = deps_str
 
 
 def detect_gpu_simple() -> str:
     """Lightweight GPU detection using system commands."""
-    if platform.system() != "Windows":
-        return "cpu"
-
-    try:
-        result = subprocess.run(
-            ["wmic", "path", "win32_videocontroller", "get", "name"],
-            capture_output=True, text=True, timeout=10,
-            creationflags=subprocess.CREATE_NO_WINDOW,
-        )
-        output = result.stdout.lower()
-        _log_to_file(f"GPU detected: {output.strip()}")
-
-        if "nvidia" in output and ("geforce" in output or "rtx" in output or "gtx" in output or "quadro" in output):
-            return "cuda"
-        if "intel" in output and ("arc" in output or "iris" in output or "uhd" in output):
-            return "openvino"
-        if "amd" in output and ("radeon" in output or "rx " in output):
-            return "directml"
-    except Exception as e:
-        _log_to_file(f"GPU detection failed: {e}")
-
-    return "cpu"
+    from lerolero.platform import get_platform
+    backend = get_platform().detect_gpu()
+    _log_to_file(f"GPU detected: {backend}")
+    return backend
 
 
 def check_deps_installed(backend: str) -> bool:
