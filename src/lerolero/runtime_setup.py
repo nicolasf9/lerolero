@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import logging
+import os
 import subprocess
 import sys
 from pathlib import Path
@@ -57,13 +58,17 @@ _COMMON_PACKAGES = [
 
 
 def _get_deps_dir() -> Path:
-    """Return the local packages directory next to the exe or in the project."""
-    if getattr(sys, "frozen", False):
-        base = Path(sys.executable).parent
+    """Return the local packages directory — %APPDATA%/LeroLero/deps for stability."""
+    # Prefer AppData so deps survive app updates
+    appdata = os.environ.get("APPDATA")
+    if appdata:
+        deps_dir = Path(appdata) / "LeroLero" / "deps"
+    elif getattr(sys, "frozen", False):
+        deps_dir = Path(sys.executable).parent / "deps"
     else:
-        base = Path(__file__).resolve().parent.parent.parent
-    deps_dir = base / "deps"
-    deps_dir.mkdir(exist_ok=True)
+        deps_dir = Path(__file__).resolve().parent.parent.parent / "deps"
+
+    deps_dir.mkdir(parents=True, exist_ok=True)
     return deps_dir
 
 
@@ -75,11 +80,51 @@ def _add_deps_to_path() -> None:
         sys.path.insert(0, deps_str)
 
 
-def detect_gpu_simple() -> str:
-    """Lightweight GPU detection without importing heavy libraries.
+def _get_pip_executable() -> list[str]:
+    """Find the best way to run pip — handles frozen exe and normal Python."""
+    # Try using the current Python's pip module
+    try:
+        result = subprocess.run(
+            [sys.executable, "-m", "pip", "--version"],
+            capture_output=True, text=True, timeout=10,
+        )
+        if result.returncode == 0:
+            return [sys.executable, "-m", "pip"]
+    except Exception:
+        pass
 
-    Uses system commands to detect GPU vendor before any pip installs.
-    """
+    # For frozen exe: try system Python
+    for python in ["python", "python3", "py"]:
+        try:
+            result = subprocess.run(
+                [python, "-m", "pip", "--version"],
+                capture_output=True, text=True, timeout=10,
+            )
+            if result.returncode == 0:
+                return [python, "-m", "pip"]
+        except Exception:
+            continue
+
+    # Last resort: try pip directly
+    for pip_cmd in ["pip", "pip3"]:
+        try:
+            result = subprocess.run(
+                [pip_cmd, "--version"],
+                capture_output=True, text=True, timeout=10,
+            )
+            if result.returncode == 0:
+                return [pip_cmd]
+        except Exception:
+            continue
+
+    raise RuntimeError(
+        "pip não encontrado. Instale Python de https://python.org\n"
+        "Marque 'Add Python to PATH' durante a instalação."
+    )
+
+
+def detect_gpu_simple() -> str:
+    """Lightweight GPU detection without importing heavy libraries."""
     import platform
 
     if platform.system() != "Windows":
@@ -124,29 +169,31 @@ def check_deps_installed(backend: str) -> bool:
 
 
 def install_deps(backend: str, progress_callback=None) -> bool:
-    """Install dependencies for the detected backend.
-
-    Args:
-        backend: One of 'openvino', 'cuda', 'directml', 'cpu'.
-        progress_callback: Optional callable(message: str, percent: int).
-
-    Returns:
-        True if installation succeeded.
-    """
+    """Install dependencies for the detected backend."""
     deps_dir = _get_deps_dir()
+
+    try:
+        pip_cmd = _get_pip_executable()
+    except RuntimeError as e:
+        if progress_callback:
+            progress_callback(str(e), -1)
+        return False
+
     packages = _COMMON_PACKAGES + _BACKEND_PACKAGES.get(backend, _BACKEND_PACKAGES["cpu"])
 
     total = len(packages)
     for i, pkg in enumerate(packages):
         pkg_name = pkg.split(">=")[0].split("[")[0]
+        percent = int((i / total) * 100)
         if progress_callback:
-            progress_callback(f"Installing {pkg_name}...", int((i / total) * 100))
+            progress_callback(f"Instalando {pkg_name}... ({i+1}/{total})", percent)
         logger.info("Installing %s to %s", pkg, deps_dir)
 
-        cmd = [
-            sys.executable, "-m", "pip", "install",
-            pkg, "--target", str(deps_dir),
-            "--no-warn-script-location", "--quiet",
+        cmd = pip_cmd + [
+            "install", pkg,
+            "--target", str(deps_dir),
+            "--no-warn-script-location",
+            "--disable-pip-version-check",
         ]
 
         # For CUDA, use PyTorch index
@@ -154,28 +201,35 @@ def install_deps(backend: str, progress_callback=None) -> bool:
             cmd.extend(["--index-url", "https://download.pytorch.org/whl/cu124"])
 
         try:
-            result = subprocess.run(cmd, capture_output=True, text=True, timeout=600)
+            result = subprocess.run(
+                cmd, capture_output=True, text=True, timeout=600,
+                creationflags=subprocess.CREATE_NO_WINDOW if sys.platform == "win32" else 0,
+            )
             if result.returncode != 0:
                 logger.error("Failed to install %s: %s", pkg, result.stderr)
                 if progress_callback:
-                    progress_callback(f"Error installing {pkg_name}", -1)
+                    progress_callback(f"Erro ao instalar {pkg_name}: {result.stderr[:100]}", -1)
                 return False
         except subprocess.TimeoutExpired:
             logger.error("Timeout installing %s", pkg)
+            if progress_callback:
+                progress_callback(f"Timeout ao instalar {pkg_name}", -1)
+            return False
+        except Exception as e:
+            logger.error("Error installing %s: %s", pkg, e)
+            if progress_callback:
+                progress_callback(f"Erro: {e}", -1)
             return False
 
     if progress_callback:
-        progress_callback("Installation complete!", 100)
+        progress_callback("✅ Instalação concluída!", 100)
 
     _add_deps_to_path()
     return True
 
 
 def ensure_deps(progress_callback=None) -> str:
-    """Detect GPU, install deps if needed, return backend name.
-
-    This is the main entry point called from the app startup.
-    """
+    """Detect GPU, install deps if needed, return backend name."""
     _add_deps_to_path()
 
     backend = detect_gpu_simple()
@@ -185,9 +239,8 @@ def ensure_deps(progress_callback=None) -> str:
         logger.info("Dependencies already installed for %s", backend)
         return backend
 
-    # Fallback: if preferred backend deps fail, try cpu/openvino
     if progress_callback:
-        progress_callback(f"Setting up for {backend.upper()} GPU...", 0)
+        progress_callback(f"Configurando para {backend.upper()}...", 0)
 
     success = install_deps(backend, progress_callback)
     if not success and backend != "cpu":
@@ -196,6 +249,6 @@ def ensure_deps(progress_callback=None) -> str:
         success = install_deps(backend, progress_callback)
 
     if not success:
-        raise RuntimeError("Failed to install required dependencies")
+        raise RuntimeError("Falha ao instalar dependências necessárias")
 
     return backend

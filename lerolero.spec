@@ -7,6 +7,7 @@ binaries = []
 hiddenimports = [
     'pynput.keyboard._win32', 'pynput.mouse._win32',
     'webview', 'clr_loader', 'pythonnet',
+    'pip', 'pip._internal', 'pip._vendor',
 ]
 
 # Bundle app code + webview + customtkinter (fallback)
@@ -22,11 +23,11 @@ web_dist = os.path.join('web', 'dist')
 if os.path.exists(web_dist):
     datas += [(web_dist, os.path.join('lerolero', 'web_dist'))]
 
-# Include icon
+# Include assets
 datas += [('src/lerolero/assets/icon.ico', 'lerolero/assets')]
 datas += [('src/lerolero/assets/icon.png', 'lerolero/assets')]
 
-# Exclude ALL heavy ML deps — installed at runtime via runtime_setup.py
+# Exclude ALL heavy ML deps — installed at runtime
 EXCLUDE_HEAVY = [
     'torch', 'torchvision', 'torchaudio', 'torch._C', 'torch.cuda',
     'caffe2', 'functorch',
@@ -35,7 +36,6 @@ EXCLUDE_HEAVY = [
     'huggingface_hub', 'accelerate',
     'onnxruntime', 'onnx',
     'scipy', 'scipy.special',
-    'tqdm',
 ]
 
 a = Analysis(
@@ -63,13 +63,15 @@ exe = EXE(
     bootloader_ignore_signals=False,
     strip=False,
     upx=True,
-    console=False,
+    console=True,  # Keep console visible for setup/debugging
     disable_windowed_traceback=False,
     argv_emulation=False,
     target_arch=None,
     codesign_identity=None,
     entitlements_file=None,
     icon='src/lerolero/assets/icon.ico',
+    uac_admin=False,
+    version='version_info.txt',
 )
 coll = COLLECT(
     exe,
