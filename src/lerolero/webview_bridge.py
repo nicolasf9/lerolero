@@ -19,9 +19,58 @@ def _set_windows_icon() -> None:
     if sys.platform != "win32":
         return
     try:
-        # Set AppUserModelID so Windows shows our icon in taskbar
         app_id = "lerolero.lerolero.1.0"
         ctypes.windll.shell32.SetCurrentProcessExplicitAppUserModelID(app_id)
+    except Exception:
+        pass
+
+
+def _apply_window_icon() -> None:
+    """Force the LeroLero .ico onto the window title bar and taskbar via Win32 API."""
+    if sys.platform != "win32":
+        return
+    try:
+        from pathlib import Path
+
+        ico = Path(__file__).parent / "assets" / "icon.ico"
+        if not ico.exists():
+            return
+
+        user32 = ctypes.windll.user32
+        # Load icon from file
+        IMAGE_ICON = 1
+        LR_LOADFROMFILE = 0x0010
+        LR_DEFAULTSIZE = 0x0040
+
+        hicon_big = user32.LoadImageW(
+            0, str(ico), IMAGE_ICON, 48, 48, LR_LOADFROMFILE
+        )
+        hicon_small = user32.LoadImageW(
+            0, str(ico), IMAGE_ICON, 16, 16, LR_LOADFROMFILE
+        )
+
+        if not hicon_big and not hicon_small:
+            return
+
+        # Find the pywebview window by title
+        import time
+        for _ in range(50):  # retry up to 5 seconds
+            hwnd = user32.FindWindowW(None, "LeroLero")
+            if hwnd:
+                break
+            time.sleep(0.1)
+
+        if not hwnd:
+            return
+
+        WM_SETICON = 0x0080
+        ICON_BIG = 1
+        ICON_SMALL = 0
+
+        if hicon_big:
+            user32.SendMessageW(hwnd, WM_SETICON, ICON_BIG, hicon_big)
+        if hicon_small:
+            user32.SendMessageW(hwnd, WM_SETICON, ICON_SMALL, hicon_small)
     except Exception:
         pass
 
@@ -258,6 +307,8 @@ def start_webview_app(controller: WhisperAppController) -> None:
             api._push_event("loading_done", True)
 
     def _on_loaded() -> None:
+        # Apply icon to window title bar + taskbar
+        threading.Thread(target=_apply_window_icon, daemon=True).start()
         threading.Thread(target=_init, daemon=True).start()
 
     # Wire recording_done event
