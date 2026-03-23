@@ -15,17 +15,15 @@ export function GeneralView({ status }: { status: AppStatus }) {
 
   const loadData = useCallback(async () => {
     const [h, m, a] = await Promise.all([getHistory(query, appFilter), getMetrics(), getUniqueApps()]);
-    setEntries(h);
-    setMetrics(m);
-    setApps(a);
+    setEntries(h); setMetrics(m); setApps(a);
   }, [query, appFilter]);
 
   useEffect(() => { loadData(); }, [loadData]);
 
   useEffect(() => {
-    const unsub1 = on("preview_update", (d) => setLiveText((d as any)?.text || ""));
-    const unsub2 = on("recording_done", () => { setLiveText(""); loadData(); });
-    return () => { unsub1(); unsub2(); };
+    const u1 = on("preview_update", (d) => setLiveText((d as any)?.text || ""));
+    const u2 = on("recording_done", () => { setLiveText(""); loadData(); });
+    return () => { u1(); u2(); };
   }, [loadData]);
 
   useEffect(() => {
@@ -34,46 +32,77 @@ export function GeneralView({ status }: { status: AppStatus }) {
 
   return (
     <div className="h-full flex flex-col">
-      {/* Stats + search bar */}
-      <div className="flex items-center gap-[var(--sp-4)] px-[var(--sp-5)] py-[var(--sp-3)] border-b"
-           style={{ background: "var(--surface2)", borderColor: "var(--border-subtle)" }}>
+      {/* Stats + Search bar */}
+      <div
+        className="flex items-center"
+        style={{
+          padding: "8px 20px",
+          gap: 16,
+          background: "var(--surface2)",
+          borderBottom: "1px solid var(--border-subtle)",
+        }}
+      >
         {metrics && (
-          <div className="flex items-center gap-[var(--sp-4)]">
-            <span className="text-[12px] font-semibold" style={{ color: "var(--accent)" }}>
-              {metrics.words_today.toLocaleString()} palavras
+          <div className="flex items-center" style={{ gap: 20 }}>
+            <span style={{ fontSize: 12, fontWeight: 600, color: "var(--accent)" }}>
+              💬 {metrics.words_today.toLocaleString()} palavras
             </span>
-            <span className="text-[12px] font-semibold" style={{ color: "var(--success)" }}>
-              {formatDuration(metrics.time_saved_today_s)} salvos
+            <span style={{ fontSize: 12, fontWeight: 600, color: "var(--success)" }}>
+              ⏱ {formatDuration(metrics.time_saved_today_s)} salvos
             </span>
             {metrics.streak_days > 1 && (
-              <span className="text-[12px] font-semibold" style={{ color: "var(--warning)" }}>
-                {metrics.streak_days} dias seguidos
+              <span style={{ fontSize: 12, fontWeight: 600, color: "var(--warning)" }}>
+                🔥 {metrics.streak_days} dias seguidos
               </span>
             )}
           </div>
         )}
 
-        <div className="flex-1" />
+        <div style={{ flex: 1 }} />
 
-        {/* Glowing search bar — animated-glowing-search inspired */}
-        <div className="glow-border rounded-[var(--radius-md)] p-[1px]">
-          <div className="relative flex items-center rounded-[calc(var(--radius-md)-1px)]"
-               style={{ background: "var(--surface)" }}>
-            <Search size={14} className="absolute left-[var(--sp-3)]" style={{ color: "var(--text-tertiary)" }} />
+        {/* Glowing search bar */}
+        <div className="glow-border" style={{ borderRadius: 10, padding: 1 }}>
+          <div
+            className="flex items-center"
+            style={{ background: "var(--surface)", borderRadius: 9, position: "relative" }}
+          >
+            <Search size={14} style={{ position: "absolute", left: 10, color: "var(--text-tertiary)" }} />
             <input
-              type="text" placeholder="Buscar transcrições..."
-              value={query} onChange={(e) => setQuery(e.target.value)}
-              className="w-[200px] h-[34px] pl-[var(--sp-8)] pr-[var(--sp-3)] text-[12px] bg-transparent outline-none"
-              style={{ color: "var(--text)" }}
+              type="text"
+              placeholder="Buscar transcrições..."
+              value={query}
+              onChange={(e) => setQuery(e.target.value)}
+              style={{
+                width: 220,
+                height: 34,
+                paddingLeft: 32,
+                paddingRight: 12,
+                fontSize: 12,
+                background: "transparent",
+                color: "var(--text)",
+                border: "none",
+                outline: "none",
+              }}
             />
           </div>
         </div>
 
         {/* App filter */}
         <select
-          value={appFilter} onChange={(e) => setAppFilter(e.target.value)}
-          className="h-[34px] pl-[var(--sp-3)] pr-[var(--sp-6)] text-[12px] rounded-[var(--radius-md)] outline-none cursor-pointer appearance-none"
-          style={{ background: "var(--surface)", border: "1px solid var(--border)", color: "var(--text)" }}
+          value={appFilter}
+          onChange={(e) => setAppFilter(e.target.value)}
+          style={{
+            height: 34,
+            padding: "0 12px",
+            fontSize: 12,
+            borderRadius: 10,
+            background: "var(--surface)",
+            border: "1px solid var(--border)",
+            color: "var(--text)",
+            outline: "none",
+            cursor: "pointer",
+            minWidth: 120,
+          }}
         >
           <option value="">Todos os apps</option>
           {apps.map(a => <option key={a} value={a}>{a}</option>)}
@@ -81,33 +110,44 @@ export function GeneralView({ status }: { status: AppStatus }) {
       </div>
 
       {/* Chat area */}
-      <div ref={scrollRef} className="flex-1 overflow-y-auto px-[var(--sp-5)] py-[var(--sp-4)] space-y-[var(--sp-2)]">
-        {/* Voice orb */}
+      <div
+        ref={scrollRef}
+        className="flex-1 overflow-y-auto"
+        style={{ padding: "16px 20px", display: "flex", flexDirection: "column", gap: 8 }}
+      >
         {(status.is_recording || status.is_processing) && (
           <VoiceOrb isRecording={status.is_recording} isProcessing={status.is_processing} />
         )}
 
-        {/* Empty state */}
         {entries.length === 0 && !liveText && !status.is_recording && (
-          <div className="flex flex-col items-center justify-center h-full text-center">
-            <div className="w-16 h-16 rounded-full flex items-center justify-center mb-[var(--sp-4)]"
-                 style={{ background: "var(--accent-subtle)" }}>
-              <Mic size={28} style={{ color: "var(--accent)" }} />
+          <div className="flex-1 flex flex-col items-center justify-center" style={{ textAlign: "center" }}>
+            <div
+              style={{
+                width: 72, height: 72, borderRadius: "50%",
+                background: "var(--accent-subtle)",
+                display: "flex", alignItems: "center", justifyContent: "center",
+                marginBottom: 16,
+              }}
+            >
+              <Mic size={32} style={{ color: "var(--accent)" }} />
             </div>
-            <h2 className="text-lg font-semibold" style={{ color: "var(--text)" }}>Tudo pronto.</h2>
-            <p className="text-[13px] mt-[var(--sp-2)] max-w-[280px]" style={{ color: "var(--text-secondary)" }}>
-              Pressione <kbd className="px-1.5 py-0.5 rounded-[var(--radius-sm)] text-[11px] font-mono"
-                             style={{ background: "var(--surface2)", color: "var(--accent)" }}>
+            <h2 style={{ fontSize: 20, fontWeight: 600, color: "var(--text)" }}>Tudo pronto.</h2>
+            <p style={{ fontSize: 14, color: "var(--text-secondary)", marginTop: 8, maxWidth: 300 }}>
+              Pressione{" "}
+              <kbd style={{
+                padding: "2px 8px", borderRadius: 6, fontSize: 12, fontFamily: "monospace",
+                background: "var(--surface2)", color: "var(--accent)",
+              }}>
                 {status.hotkey?.replace(/[<>]/g, "").toUpperCase()}
-              </kbd> e comece a ditar.
+              </kbd>{" "}
+              e comece a ditar.
             </p>
-            <p className="text-[11px] mt-[var(--sp-4)]" style={{ color: "var(--text-tertiary)" }}>
+            <p style={{ fontSize: 11, color: "var(--text-tertiary)", marginTop: 16 }}>
               100% offline · sua voz nunca sai do seu computador
             </p>
           </div>
         )}
 
-        {/* History entries */}
         {entries.map((entry, i) => (
           <ChatBubble
             key={`${entry.timestamp}-${i}`}
@@ -119,7 +159,6 @@ export function GeneralView({ status }: { status: AppStatus }) {
           />
         ))}
 
-        {/* Live bubble */}
         {liveText && (
           <ChatBubble text={liveText} timestamp="" duration={0} words={0} windowTitle="" isLive />
         )}

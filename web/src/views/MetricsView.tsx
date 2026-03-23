@@ -2,59 +2,50 @@ import { useState, useEffect, useRef } from "react";
 import { getMetrics, formatDuration, type Metrics } from "@/lib/api";
 import { motion } from "framer-motion";
 
-/* Holographic Card — mouse-tracking gradient + shine line */
 function HoloCard({ label, value, accent }: { label: string; value: string; accent: string }) {
   const ref = useRef<HTMLDivElement>(null);
   const [pos, setPos] = useState({ x: 50, y: 50 });
   const [hovering, setHovering] = useState(false);
 
-  const onMove = (e: React.MouseEvent) => {
-    if (!ref.current) return;
-    const r = ref.current.getBoundingClientRect();
-    setPos({ x: ((e.clientX - r.left) / r.width) * 100, y: ((e.clientY - r.top) / r.height) * 100 });
-  };
-
   return (
     <motion.div
       ref={ref}
-      onMouseMove={onMove}
+      onMouseMove={(e) => {
+        if (!ref.current) return;
+        const r = ref.current.getBoundingClientRect();
+        setPos({ x: ((e.clientX - r.left) / r.width) * 100, y: ((e.clientY - r.top) / r.height) * 100 });
+      }}
       onMouseEnter={() => setHovering(true)}
       onMouseLeave={() => { setHovering(false); setPos({ x: 50, y: 50 }); }}
-      className="relative rounded-[var(--radius-xl)] overflow-hidden cursor-default"
       style={{
-        background: "var(--surface)",
-        border: "1px solid var(--border)",
-        boxShadow: hovering ? "var(--shadow-lg)" : "var(--shadow-sm)",
-        transition: "box-shadow 0.3s ease",
+        position: "relative",
+        borderRadius: 16,
+        overflow: "hidden",
+        padding: 24,
+        cursor: "default",
+        background: hovering
+          ? `radial-gradient(circle at ${pos.x}% ${pos.y}%, ${accent}18 0%, var(--surface) 60%)`
+          : "var(--surface)",
+        border: `1px solid ${hovering ? accent + "40" : "var(--border)"}`,
+        boxShadow: hovering ? `0 8px 30px ${accent}15` : "var(--shadow-sm)",
+        transition: "border-color 0.3s, box-shadow 0.3s, background 0.3s",
       }}
       whileHover={{ scale: 1.02 }}
       transition={{ type: "spring", stiffness: 400, damping: 25 }}
     >
-      {/* Holographic gradient overlay */}
-      <div
-        className="absolute inset-0 pointer-events-none transition-opacity duration-300"
-        style={{
-          background: `radial-gradient(circle at ${pos.x}% ${pos.y}%, ${accent}15 0%, transparent 60%)`,
-          opacity: hovering ? 1 : 0,
-        }}
-      />
       {/* Shine line */}
-      <div
-        className="absolute inset-0 pointer-events-none transition-opacity duration-300"
-        style={{
-          background: `linear-gradient(${pos.x * 3.6}deg, transparent 40%, ${accent}20 50%, transparent 60%)`,
-          opacity: hovering ? 1 : 0,
-        }}
-      />
-
-      <div className="relative z-10 p-[var(--sp-5)]">
-        <p className="text-[10px] uppercase tracking-[0.1em] font-bold" style={{ color: "var(--text-tertiary)" }}>
-          {label}
-        </p>
-        <p className="text-[28px] font-bold mt-[var(--sp-1)] tracking-tight" style={{ color: accent }}>
-          {value}
-        </p>
-      </div>
+      {hovering && (
+        <div style={{
+          position: "absolute", inset: 0, pointerEvents: "none",
+          background: `linear-gradient(${pos.x * 3.6}deg, transparent 40%, ${accent}15 50%, transparent 60%)`,
+        }} />
+      )}
+      <p style={{ fontSize: 10, textTransform: "uppercase", letterSpacing: "0.1em", fontWeight: 700, color: "var(--text-tertiary)", position: "relative", zIndex: 1 }}>
+        {label}
+      </p>
+      <p style={{ fontSize: 28, fontWeight: 700, marginTop: 4, letterSpacing: "-0.02em", color: accent, position: "relative", zIndex: 1 }}>
+        {value}
+      </p>
     </motion.div>
   );
 }
@@ -73,9 +64,9 @@ export function MetricsView() {
   const maxW = Math.max(...days.map(([, w]) => w as number), 1);
 
   return (
-    <div className="h-full overflow-y-auto p-[var(--sp-6)] space-y-[var(--sp-6)]">
-      {/* Holographic cards grid */}
-      <div className="grid grid-cols-2 gap-[var(--sp-4)]">
+    <div className="h-full overflow-y-auto" style={{ padding: 24 }}>
+      {/* Holographic cards */}
+      <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 16 }}>
         <HoloCard label="Tempo Salvo" value={formatDuration(metrics.total_time_saved_s)} accent="var(--success)" />
         <HoloCard label="Total Palavras" value={metrics.total_words.toLocaleString()} accent="var(--accent)" />
         <HoloCard label="Sessões" value={String(metrics.total_sessions)} accent="var(--text-secondary)" />
@@ -83,34 +74,31 @@ export function MetricsView() {
       </div>
 
       {/* 7-day chart */}
-      <div>
-        <h3 className="text-[11px] uppercase tracking-[0.1em] font-bold mb-[var(--sp-3)]"
-            style={{ color: "var(--accent)" }}>
-          Últimos 7 dias
-        </h3>
-        <div className="rounded-[var(--radius-lg)] p-[var(--sp-4)] space-y-[var(--sp-3)]"
-             style={{ background: "var(--surface)", border: "1px solid var(--border)" }}>
+      <h3 style={{ fontSize: 11, textTransform: "uppercase", letterSpacing: "0.1em", fontWeight: 700, color: "var(--accent)", marginTop: 24, marginBottom: 12 }}>
+        Últimos 7 dias
+      </h3>
+      <div style={{ borderRadius: 14, padding: 16, background: "var(--surface)", border: "1px solid var(--border)" }}>
+        <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
           {days.map(([day, words]) => (
-            <div key={day} className="flex items-center gap-[var(--sp-3)]">
-              <span className="text-[11px] font-mono w-[44px] shrink-0" style={{ color: "var(--text-tertiary)" }}>
+            <div key={day} style={{ display: "flex", alignItems: "center", gap: 12 }}>
+              <span style={{ fontSize: 11, fontFamily: "monospace", color: "var(--text-tertiary)", width: 44, flexShrink: 0 }}>
                 {day.slice(5)}
               </span>
-              <div className="flex-1 h-2.5 rounded-full overflow-hidden" style={{ background: "var(--border)" }}>
+              <div style={{ flex: 1, height: 10, borderRadius: 5, background: "var(--border)", overflow: "hidden" }}>
                 <motion.div
-                  className="h-full rounded-full"
-                  style={{ background: "var(--accent)" }}
+                  style={{ height: "100%", borderRadius: 5, background: "var(--accent)" }}
                   initial={{ width: 0 }}
                   animate={{ width: `${((words as number) / maxW) * 100}%` }}
                   transition={{ duration: 0.6, ease: "easeOut", delay: 0.1 }}
                 />
               </div>
-              <span className="text-[11px] font-mono font-semibold w-[36px] text-right" style={{ color: "var(--text)" }}>
+              <span style={{ fontSize: 11, fontFamily: "monospace", fontWeight: 600, color: "var(--text)", width: 36, textAlign: "right" }}>
                 {words as number}
               </span>
             </div>
           ))}
           {days.length === 0 && (
-            <p className="text-[13px] text-center py-[var(--sp-6)]" style={{ color: "var(--text-tertiary)" }}>
+            <p style={{ fontSize: 13, textAlign: "center", padding: "24px 0", color: "var(--text-tertiary)" }}>
               Nenhum dado ainda.
             </p>
           )}

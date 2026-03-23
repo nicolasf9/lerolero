@@ -18,10 +18,11 @@ export function Sidebar({ activeTab, onTabChange }: SidebarProps) {
   const [hoveredTab, setHoveredTab] = useState<string | null>(null);
 
   return (
-    <div className="w-[200px] flex flex-col border-r select-none"
-         style={{ background: "var(--surface)", borderColor: "var(--border)" }}>
-      {/* Nav items */}
-      <nav className="flex-1 p-3 space-y-1">
+    <div
+      className="w-[220px] flex flex-col select-none shrink-0"
+      style={{ background: "var(--surface)", borderRight: "1px solid var(--border)" }}
+    >
+      <nav className="flex-1 flex flex-col gap-1 p-3 pt-4">
         {tabs.map((tab) => {
           const Icon = tab.icon;
           const isActive = activeTab === tab.key;
@@ -33,55 +34,68 @@ export function Sidebar({ activeTab, onTabChange }: SidebarProps) {
               onClick={() => onTabChange(tab.key)}
               onMouseEnter={() => setHoveredTab(tab.key)}
               onMouseLeave={() => setHoveredTab(null)}
-              className="relative w-full flex items-center gap-3 px-3 py-2.5 rounded-[var(--radius-md)] text-[13px] font-medium transition-colors cursor-pointer"
-              style={{ color: isActive ? "#fff" : "var(--text-secondary)" }}
+              className="relative flex items-center gap-3 cursor-pointer"
+              style={{
+                padding: "10px 14px",
+                borderRadius: "10px",
+                fontSize: "13px",
+                fontWeight: isActive ? 600 : 500,
+                color: isActive ? "#fff" : "var(--text-secondary)",
+                transition: "color 0.15s",
+              }}
             >
-              {/* Active indicator — anime-navbar layoutId */}
+              {/* Active indicator with glow — anime-navbar layoutId */}
               {isActive && (
                 <motion.div
-                  layoutId="sidebar-indicator"
-                  className="absolute inset-0 rounded-[var(--radius-md)] -z-10 overflow-hidden"
+                  layoutId="sidebar-active-bg"
+                  className="absolute inset-0 overflow-hidden"
+                  style={{ borderRadius: 10 }}
                   transition={{ type: "spring", stiffness: 350, damping: 30 }}
                 >
-                  <div className="absolute inset-0 rounded-[var(--radius-md)]" style={{ background: "var(--accent)" }} />
-                  {/* Pulsing glow like anime-navbar */}
+                  <div className="absolute inset-0" style={{ background: "var(--accent)", borderRadius: 10 }} />
                   <motion.div
-                    className="absolute inset-[-4px] rounded-[var(--radius-lg)]"
-                    style={{ background: "var(--accent)", filter: "blur(12px)" }}
-                    animate={{ opacity: [0.15, 0.3, 0.15], scale: [1, 1.02, 1] }}
+                    className="absolute"
+                    style={{
+                      inset: -6,
+                      borderRadius: 16,
+                      background: "var(--accent)",
+                      filter: "blur(14px)",
+                    }}
+                    animate={{ opacity: [0.15, 0.35, 0.15], scale: [1, 1.03, 1] }}
                     transition={{ duration: 2.5, repeat: Infinity, ease: "easeInOut" }}
                   />
                 </motion.div>
               )}
 
-              {/* Hover bg */}
+              {/* Hover background */}
               <AnimatePresence>
                 {isHovered && !isActive && (
                   <motion.div
                     initial={{ opacity: 0, scale: 0.95 }}
                     animate={{ opacity: 1, scale: 1 }}
                     exit={{ opacity: 0, scale: 0.95 }}
-                    className="absolute inset-0 rounded-[var(--radius-md)] -z-10"
-                    style={{ background: "var(--surface2)" }}
+                    className="absolute inset-0"
+                    style={{ background: "var(--surface2)", borderRadius: 10 }}
                   />
                 )}
               </AnimatePresence>
 
-              <Icon size={16} strokeWidth={2} className="relative z-10 shrink-0" />
-              <span className="relative z-10">{tab.label}</span>
+              <Icon size={17} strokeWidth={2} style={{ position: "relative", zIndex: 10, flexShrink: 0 }} />
+              <span style={{ position: "relative", zIndex: 10 }}>{tab.label}</span>
             </button>
           );
         })}
       </nav>
 
-      {/* Brand */}
-      <div className="px-4 py-3 border-t flex items-center gap-2" style={{ borderColor: "var(--border)" }}>
-        <img src="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' width='20' height='20'><text y='16' font-size='16'>🎙</text></svg>"
-             alt="" width={20} height={20} />
-        <span className="text-sm font-bold" style={{ color: "var(--text-secondary)" }}>
+      {/* Brand footer */}
+      <div
+        className="flex items-center gap-2"
+        style={{ padding: "12px 16px", borderTop: "1px solid var(--border)" }}
+      >
+        <span style={{ fontSize: 15, fontWeight: 700, color: "var(--text-secondary)" }}>
           LeroLero
         </span>
-        <span className="text-[10px] font-mono" style={{ color: "var(--text-tertiary)" }}>v1.0</span>
+        <span style={{ fontSize: 10, fontFamily: "monospace", color: "var(--text-tertiary)" }}>v1.0</span>
       </div>
     </div>
   );

@@ -29,66 +29,86 @@ export function ChatBubble({ text, timestamp, duration, words, windowTitle, isLi
   };
 
   const tsShort = timestamp?.slice(11, 16) || "";
-  const dateShort = timestamp?.slice(0, 10) || "";
+  const dateStr = timestamp?.slice(0, 10) || "";
+  const today = new Date().toISOString().slice(0, 10);
   const shortWin = windowTitle?.includes(" - ") ? windowTitle.split(" - ")[0].trim() : (windowTitle || "");
 
   return (
     <div
       ref={ref}
-      className="group relative rounded-[var(--radius-lg)] overflow-hidden transition-all duration-200"
-      style={{
-        background: "var(--surface)",
-        border: "1px solid var(--border-subtle)",
-        boxShadow: isHovered ? "var(--shadow-md)" : "var(--shadow-sm)",
-      }}
       onMouseMove={handleMouseMove}
       onMouseEnter={() => setIsHovered(true)}
       onMouseLeave={() => setIsHovered(false)}
+      style={{
+        position: "relative",
+        borderRadius: 14,
+        overflow: "hidden",
+        background: "var(--surface)",
+        border: `1px solid ${isHovered ? "var(--accent)" : "var(--border-subtle)"}`,
+        boxShadow: isHovered ? "0 4px 20px rgba(167,139,250,0.08)" : "var(--shadow-sm)",
+        transition: "border-color 0.2s, box-shadow 0.2s",
+      }}
     >
       {/* Spotlight glow — follows cursor */}
       {isHovered && (
         <div
-          className="spotlight-glow"
-          style={{ left: mousePos.x, top: mousePos.y, opacity: 1 }}
+          style={{
+            position: "absolute",
+            left: mousePos.x,
+            top: mousePos.y,
+            width: 280,
+            height: 280,
+            borderRadius: "50%",
+            transform: "translate(-50%, -50%)",
+            background: "radial-gradient(circle, var(--accent-glow) 0%, transparent 70%)",
+            pointerEvents: "none",
+            zIndex: 0,
+          }}
         />
       )}
 
       {/* Content */}
-      <div className="relative z-10 px-[var(--sp-4)] py-[var(--sp-3)]">
-        <p className={`text-[13px] leading-[1.6] ${isLive ? "opacity-70" : ""}`}
-           style={{ color: "var(--text)" }}>
+      <div style={{ position: "relative", zIndex: 1, padding: "14px 18px" }}>
+        <p style={{
+          fontSize: 13,
+          lineHeight: 1.65,
+          color: "var(--text)",
+          opacity: isLive ? 0.65 : 1,
+        }}>
           {text || "..."}
         </p>
 
-        {/* Metadata row */}
-        <div className="flex items-center gap-[var(--sp-2)] mt-[var(--sp-2)] flex-wrap">
-          {tsShort && (
-            <span className="text-[11px] font-mono" style={{ color: "var(--text-tertiary)" }}>
-              {dateShort !== new Date().toISOString().slice(0, 10) ? `${dateShort} ` : ""}{tsShort}
-            </span>
-          )}
-          {duration > 0 && (
-            <span className="text-[11px]" style={{ color: "var(--text-tertiary)" }}>
-              · {duration.toFixed(1)}s
-            </span>
-          )}
-          {words > 0 && (
-            <span className="text-[11px]" style={{ color: "var(--text-tertiary)" }}>
-              · {words} palavras
-            </span>
-          )}
+        {/* Metadata */}
+        <div style={{
+          display: "flex",
+          alignItems: "center",
+          gap: 8,
+          marginTop: 8,
+          fontSize: 11,
+          color: "var(--text-tertiary)",
+          flexWrap: "wrap",
+        }}>
+          {tsShort && <span style={{ fontFamily: "monospace" }}>{dateStr !== today ? `${dateStr} ` : ""}{tsShort}</span>}
+          {duration > 0 && <span>· {duration.toFixed(1)}s</span>}
+          {words > 0 && <span>· {words} palavras</span>}
           {shortWin && (
-            <span className="inline-flex items-center gap-1 text-[11px]" style={{ color: "var(--text-tertiary)" }}>
+            <span style={{ display: "inline-flex", alignItems: "center", gap: 3 }}>
               · <Monitor size={10} strokeWidth={1.5} /> {shortWin}
             </span>
           )}
-          <div className="flex-1" />
+          <span style={{ flex: 1 }} />
           <button
             onClick={handleCopy}
-            className="opacity-0 group-hover:opacity-100 transition-opacity p-1 rounded-[var(--radius-sm)] cursor-pointer"
-            style={{ color: "var(--text-tertiary)" }}
-            onMouseEnter={(e) => (e.currentTarget.style.background = "var(--surface2)")}
-            onMouseLeave={(e) => (e.currentTarget.style.background = "transparent")}
+            style={{
+              padding: 4,
+              borderRadius: 6,
+              border: "none",
+              background: "transparent",
+              cursor: "pointer",
+              color: "var(--text-tertiary)",
+              opacity: isHovered ? 1 : 0,
+              transition: "opacity 0.2s",
+            }}
           >
             {copied ? <Check size={13} style={{ color: "var(--success)" }} /> : <Copy size={13} />}
           </button>
