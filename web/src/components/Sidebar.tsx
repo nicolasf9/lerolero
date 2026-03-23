@@ -92,6 +92,7 @@ export function Sidebar({ activeTab, onTabChange }: SidebarProps) {
         className="flex items-center gap-2"
         style={{ padding: "12px 16px", borderTop: "1px solid var(--border)" }}
       >
+        <img src="/icon.png" alt="" style={{ width: 22, height: 22, borderRadius: 4, flexShrink: 0 }} />
         <span style={{ fontSize: 15, fontWeight: 700, color: "var(--text-secondary)" }}>
           LeroLero
         </span>

@@ -187,8 +187,9 @@ class WebViewAPI:
                 continue
 
             ts = e.get("timestamp", "")
-            dur = metrics_by_ts.get(ts[:16], 0)
-            words = len(text.split())
+            # Prefer duration saved in entry, fallback to metrics match
+            dur = e.get("duration", 0) or metrics_by_ts.get(ts[:16], 0)
+            words = e.get("words", 0) or len(text.split())
             result.append({
                 "text": text,
                 "timestamp": ts,
