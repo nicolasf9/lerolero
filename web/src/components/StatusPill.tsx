@@ -12,8 +12,16 @@ export function StatusPill({ status, isRecording }: { status: string; isRecordin
   const c = configs[status] || configs.Ready;
   return (
     <motion.span
-      className="inline-flex items-center px-3 py-1 rounded-full text-[11px] font-semibold tracking-wide"
-      style={{ background: c.bg, color: c.text }}
+      className="inline-flex items-center justify-center rounded-full font-semibold tracking-wide whitespace-nowrap"
+      style={{
+        background: c.bg,
+        color: c.text,
+        padding: "6px 16px",
+        fontSize: 13,
+        lineHeight: 1,
+        minWidth: 90,
+        textAlign: "center",
+      }}
       animate={isRecording ? { scale: [1, 1.06, 1] } : {}}
       transition={isRecording ? { duration: 1.2, repeat: Infinity, ease: "easeInOut" } : {}}
     >
