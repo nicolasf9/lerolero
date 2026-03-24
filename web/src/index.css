@@ -1,84 +1,90 @@
 @import "tailwindcss";
+@import url('https://fonts.googleapis.com/css2?family=DM+Serif+Display:ital@0;1&family=DM+Sans:ital,opsz,wght@0,9..40,100..1000;1,9..40,100..1000&family=JetBrains+Mono:wght@400;500;600&display=swap');
 
 @custom-variant dark (&:where(.dark, .dark *));
 
 :root {
-  /* Surface hierarchy */
-  --bg: #f8f8fa;
+  /* ─── Surfaces ─── */
+  --bg: #faf9f7;
   --surface: #ffffff;
-  --surface2: #f0f0f5;
-  --surface3: #e8e8ef;
-  --border: #d4d4dc;
-  --border-subtle: #e8e8ef;
+  --surface2: #f2f0ec;
+  --surface3: #e8e5df;
+  --border: #d8d3cb;
+  --border-subtle: #ebe8e2;
 
-  /* Text hierarchy */
-  --text: #111115;
-  --text-secondary: #4a4a5c;
-  --text-tertiary: #7a7a90;
-  --text-disabled: #b0b0c0;
+  /* ─── Text ─── */
+  --text: #1a1915;
+  --text-secondary: #5c584e;
+  --text-tertiary: #908b7f;
+  --text-disabled: #c5c0b5;
 
-  /* Accent */
-  --accent: #6c3fdb;
-  --accent-rgb: 108, 63, 219;
-  --accent-hover: #5a2fc0;
-  --accent-subtle: rgba(108, 63, 219, 0.08);
-  --accent-glow: rgba(108, 63, 219, 0.15);
+  /* ─── Accent (terracotta — warm, bold, memorable) ─── */
+  --accent: #d4512c;
+  --accent-rgb: 212, 81, 44;
+  --accent-hover: #b8421f;
+  --accent-subtle: rgba(212, 81, 44, 0.07);
+  --accent-glow: rgba(212, 81, 44, 0.12);
 
-  /* Semantic */
-  --success: #059669;
-  --success-subtle: rgba(5, 150, 105, 0.08);
-  --danger: #dc2626;
-  --danger-subtle: rgba(220, 38, 38, 0.08);
-  --warning: #d97706;
-  --warning-subtle: rgba(217, 119, 6, 0.08);
+  /* ─── Semantic ─── */
+  --success: #2a9d6e;
+  --success-subtle: rgba(42, 157, 110, 0.07);
+  --danger: #c93030;
+  --danger-subtle: rgba(201, 48, 48, 0.07);
+  --warning: #c07a1b;
+  --warning-subtle: rgba(192, 122, 27, 0.07);
 
-  /* Spacing scale (4px base) */
+  /* ─── Spacing (4px base) ─── */
   --sp-1: 4px; --sp-2: 8px; --sp-3: 12px; --sp-4: 16px;
   --sp-5: 20px; --sp-6: 24px; --sp-8: 32px; --sp-10: 40px;
   --sp-12: 48px; --sp-16: 64px;
 
-  /* Radius */
-  --radius-sm: 6px;
-  --radius-md: 10px;
-  --radius-lg: 14px;
-  --radius-xl: 20px;
+  /* ─── Radius ─── */
+  --radius-sm: 4px;
+  --radius-md: 8px;
+  --radius-lg: 12px;
+  --radius-xl: 16px;
   --radius-full: 9999px;
 
-  /* Shadows */
-  --shadow-sm: 0 1px 2px rgba(0,0,0,0.04);
-  --shadow-md: 0 2px 8px rgba(0,0,0,0.06);
-  --shadow-lg: 0 4px 16px rgba(0,0,0,0.08);
+  /* ─── Shadows ─── */
+  --shadow-sm: 0 1px 2px rgba(26,25,21,0.04);
+  --shadow-md: 0 2px 8px rgba(26,25,21,0.06);
+  --shadow-lg: 0 4px 24px rgba(26,25,21,0.08);
+
+  /* ─── Typography ─── */
+  --font-display: 'DM Serif Display', Georgia, serif;
+  --font-body: 'DM Sans', system-ui, sans-serif;
+  --font-mono: 'JetBrains Mono', 'Cascadia Code', monospace;
 }
 
 .dark {
-  --bg: #09090b;
-  --surface: #111114;
-  --surface2: #18181c;
-  --surface3: #1f1f25;
-  --border: #2a2a32;
-  --border-subtle: #1f1f28;
+  --bg: #0c0b09;
+  --surface: #15140f;
+  --surface2: #1c1b16;
+  --surface3: #25231d;
+  --border: #332f27;
+  --border-subtle: #1f1e19;
 
-  --text: #ededf0;
-  --text-secondary: #a0a0b8;
-  --text-tertiary: #6b6b80;
-  --text-disabled: #404050;
+  --text: #e8e4db;
+  --text-secondary: #a8a295;
+  --text-tertiary: #706b60;
+  --text-disabled: #403d35;
 
-  --accent: #a78bfa;
-  --accent-rgb: 167, 139, 250;
-  --accent-hover: #c4b5fd;
-  --accent-subtle: rgba(167, 139, 250, 0.08);
-  --accent-glow: rgba(167, 139, 250, 0.12);
+  --accent: #e8653a;
+  --accent-rgb: 232, 101, 58;
+  --accent-hover: #f07c55;
+  --accent-subtle: rgba(232, 101, 58, 0.08);
+  --accent-glow: rgba(232, 101, 58, 0.14);
 
-  --success: #34d399;
-  --success-subtle: rgba(52, 211, 153, 0.08);
-  --danger: #f87171;
-  --danger-subtle: rgba(248, 113, 113, 0.08);
-  --warning: #fbbf24;
-  --warning-subtle: rgba(251, 191, 36, 0.08);
+  --success: #3dd68c;
+  --success-subtle: rgba(61, 214, 140, 0.08);
+  --danger: #f06060;
+  --danger-subtle: rgba(240, 96, 96, 0.08);
+  --warning: #f0a830;
+  --warning-subtle: rgba(240, 168, 48, 0.08);
 
-  --shadow-sm: 0 1px 2px rgba(0,0,0,0.2);
-  --shadow-md: 0 2px 8px rgba(0,0,0,0.3);
-  --shadow-lg: 0 4px 16px rgba(0,0,0,0.4);
+  --shadow-sm: 0 1px 3px rgba(0,0,0,0.25);
+  --shadow-md: 0 2px 10px rgba(0,0,0,0.35);
+  --shadow-lg: 0 4px 24px rgba(0,0,0,0.5);
 }
 
 *, *::before, *::after {
@@ -93,70 +99,70 @@ html, body, #root {
 body {
   background: var(--bg);
   color: var(--text);
-  font-family: 'Inter', 'Segoe UI Variable', 'Segoe UI', system-ui, -apple-system, sans-serif;
+  font-family: var(--font-body);
   font-size: 14px;
-  line-height: 1.5;
+  line-height: 1.55;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
+  letter-spacing: -0.01em;
 }
 
 #root { display: flex; }
 
-/* Scrollbar */
-::-webkit-scrollbar { width: 6px; }
+/* ─── Scrollbar ─── */
+::-webkit-scrollbar { width: 5px; }
 ::-webkit-scrollbar-track { background: transparent; }
 ::-webkit-scrollbar-thumb { background: var(--border); border-radius: 3px; }
 ::-webkit-scrollbar-thumb:hover { background: var(--text-tertiary); }
 
-/* Dotted surface background */
-.dotted-surface {
-  background-image: radial-gradient(circle at center, var(--accent) 1px, transparent 1px);
-  background-size: 18px 18px;
-  opacity: 0.12;
+/* ─── Noise texture overlay ─── */
+.noise-bg::after {
+  content: '';
+  position: fixed;
+  inset: 0;
+  pointer-events: none;
+  z-index: 0;
+  opacity: 0.025;
+  background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.85' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
+  background-size: 256px 256px;
 }
 
-/* Spotlight glow for cards */
-.spotlight-glow {
-  position: absolute; pointer-events: none; border-radius: 50%;
-  width: 300px; height: 300px;
-  transform: translate(-50%, -50%);
-  background: radial-gradient(circle, var(--accent-glow) 0%, transparent 70%);
-  opacity: 0; transition: opacity 0.3s ease;
-}
-.group:hover .spotlight-glow { opacity: 1; }
-
-/* Glow search border */
+/* ─── Glow search border ─── */
 @property --glow-angle {
   syntax: '<angle>';
   inherits: false;
   initial-value: 0deg;
 }
 .glow-border {
-  border: 2px solid transparent;
-  background-image: linear-gradient(var(--surface), var(--surface)),
-    conic-gradient(from var(--glow-angle), var(--accent) 0%, transparent 20%, transparent 50%, var(--accent) 70%, transparent 100%);
+  border: 1.5px solid transparent;
+  background-image:
+    linear-gradient(var(--surface), var(--surface)),
+    conic-gradient(from var(--glow-angle), var(--accent) 0%, transparent 25%, transparent 50%, var(--accent) 75%, transparent 100%);
   background-origin: border-box;
   background-clip: padding-box, border-box;
-  animation: glow-rotate 4s linear infinite;
+  animation: glow-rotate 5s linear infinite;
 }
 .glow-border:focus-within {
   animation-duration: 2s;
+  box-shadow: 0 0 16px var(--accent-glow);
 }
 @keyframes glow-rotate {
   to { --glow-angle: 360deg; }
 }
 
-/* Holographic shimmer */
-@keyframes holo-shimmer {
-  0% { background-position: 200% 0; }
-  100% { background-position: -200% 0; }
-}
-
-/* Pulse ring animation */
-@keyframes pulse-ring {
-  0% { transform: scale(1); opacity: 0.6; }
-  100% { transform: scale(2.2); opacity: 0; }
-}
-
-/* Preloader spin */
+/* ─── Animations ─── */
 @keyframes spin { to { transform: rotate(360deg); } }
+
+@keyframes fade-up {
+  from { opacity: 0; transform: translateY(8px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+/* ─── Reduced motion ─── */
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
+}

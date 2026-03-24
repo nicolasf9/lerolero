@@ -3,6 +3,7 @@ import { Search, Mic } from "lucide-react";
 import { ChatBubble } from "@/components/ChatBubble";
 import { VoiceOrb } from "@/components/ui/siri-voice-orb";
 import { getHistory, getMetrics, getUniqueApps, formatDuration, on, type HistoryEntry, type AppStatus, type Metrics } from "@/lib/api";
+import { motion } from "framer-motion";
 
 export function GeneralView({ status }: { status: AppStatus }) {
   const [entries, setEntries] = useState<HistoryEntry[]>([]);
@@ -26,59 +27,51 @@ export function GeneralView({ status }: { status: AppStatus }) {
     return () => { u1(); u2(); };
   }, [loadData]);
 
-  // Keep scroll at top (newest messages first)
   useEffect(() => {
     if (scrollRef.current) scrollRef.current.scrollTop = 0;
   }, [entries, liveText]);
 
+  const reversed = [...entries].reverse();
+
   return (
     <div className="h-full flex flex-col">
-      {/* Stats + Search bar */}
+      {/* Stats + Search */}
       <div
         className="flex items-center"
         style={{
-          padding: "8px 20px",
-          gap: 16,
-          background: "var(--surface2)",
+          padding: "10px 20px",
+          gap: 14,
           borderBottom: "1px solid var(--border-subtle)",
         }}
       >
         {metrics && (
-          <div className="flex items-center" style={{ gap: 20 }}>
-            <span style={{ fontSize: 12, fontWeight: 600, color: "var(--accent)" }}>
-              💬 {metrics.words_today.toLocaleString()} palavras
-            </span>
-            <span style={{ fontSize: 12, fontWeight: 600, color: "var(--success)" }}>
-              ⏱ {formatDuration(metrics.time_saved_today_s)} salvos
-            </span>
+          <div className="flex items-center" style={{ gap: 16 }}>
+            <Stat label="palavras" value={metrics.words_today.toLocaleString()} color="var(--accent)" />
+            <Stat label="salvos" value={formatDuration(metrics.time_saved_today_s)} color="var(--success)" />
             {metrics.streak_days > 1 && (
-              <span style={{ fontSize: 12, fontWeight: 600, color: "var(--warning)" }}>
-                🔥 {metrics.streak_days} dias seguidos
-              </span>
+              <Stat label="dias" value={String(metrics.streak_days)} color="var(--warning)" />
             )}
           </div>
         )}
 
         <div style={{ flex: 1 }} />
 
-        {/* Glowing search bar */}
-        <div className="glow-border" style={{ borderRadius: 10, padding: 1 }}>
-          <div
-            className="flex items-center"
-            style={{ background: "var(--surface)", borderRadius: 9, position: "relative" }}
-          >
-            <Search size={14} style={{ position: "absolute", left: 10, color: "var(--text-tertiary)" }} />
+        {/* Search */}
+        <div className="glow-border" style={{ borderRadius: "var(--radius-md)", padding: 1 }}>
+          <div className="flex items-center" style={{ background: "var(--surface)", borderRadius: 7, position: "relative" }}>
+            <Search size={13} style={{ position: "absolute", left: 10, color: "var(--text-disabled)" }} />
             <input
               type="text"
-              placeholder="Buscar transcrições..."
+              placeholder="Buscar..."
               value={query}
               onChange={(e) => setQuery(e.target.value)}
               style={{
-                width: 220,
-                height: 34,
-                paddingLeft: 32,
-                paddingRight: 12,
+                width: 180,
+                height: 32,
+                paddingLeft: 30,
+                paddingRight: 10,
                 fontSize: 12,
+                fontFamily: "var(--font-body)",
                 background: "transparent",
                 color: "var(--text)",
                 border: "none",
@@ -88,24 +81,23 @@ export function GeneralView({ status }: { status: AppStatus }) {
           </div>
         </div>
 
-        {/* App filter */}
         <select
           value={appFilter}
           onChange={(e) => setAppFilter(e.target.value)}
           style={{
-            height: 34,
-            padding: "0 12px",
-            fontSize: 12,
-            borderRadius: 10,
+            height: 32,
+            padding: "0 10px",
+            fontSize: 11,
+            fontFamily: "var(--font-mono)",
+            borderRadius: "var(--radius-md)",
             background: "var(--surface)",
             border: "1px solid var(--border)",
-            color: "var(--text)",
+            color: "var(--text-secondary)",
             outline: "none",
             cursor: "pointer",
-            minWidth: 120,
           }}
         >
-          <option value="">Todos os apps</option>
+          <option value="">Todos</option>
           {apps.map(a => <option key={a} value={a}>{a}</option>)}
         </select>
       </div>
@@ -114,59 +106,124 @@ export function GeneralView({ status }: { status: AppStatus }) {
       <div
         ref={scrollRef}
         className="flex-1 overflow-y-auto"
-        style={{ padding: "20px 24px", display: "flex", flexDirection: "column", gap: 12 }}
+        style={{ padding: "12px 0", display: "flex", flexDirection: "column" }}
       >
         {(status.is_recording || status.is_processing) && (
-          <VoiceOrb isRecording={status.is_recording} isProcessing={status.is_processing} />
-        )}
-
-        {entries.length === 0 && !liveText && !status.is_recording && (
-          <div className="flex-1 flex flex-col items-center justify-center" style={{ textAlign: "center" }}>
-            <div
-              style={{
-                width: 72, height: 72, borderRadius: "50%",
-                background: "var(--accent-subtle)",
-                display: "flex", alignItems: "center", justifyContent: "center",
-                marginBottom: 16,
-              }}
-            >
-              <Mic size={32} style={{ color: "var(--accent)" }} />
-            </div>
-            <h2 style={{ fontSize: 20, fontWeight: 600, color: "var(--text)" }}>Tudo pronto.</h2>
-            <p style={{ fontSize: 14, color: "var(--text-secondary)", marginTop: 8, maxWidth: 300 }}>
-              Pressione{" "}
-              <kbd style={{
-                padding: "2px 8px", borderRadius: 6, fontSize: 12, fontFamily: "monospace",
-                background: "var(--surface2)", color: "var(--accent)",
-              }}>
-                {status.hotkey?.replace(/[<>]/g, "").toUpperCase()}
-              </kbd>{" "}
-              e comece a ditar.
-            </p>
-            <p style={{ fontSize: 11, color: "var(--text-tertiary)", marginTop: 16 }}>
-              100% offline · sua voz nunca sai do seu computador
-            </p>
+          <div style={{ padding: "8px 20px" }}>
+            <VoiceOrb isRecording={status.is_recording} isProcessing={status.is_processing} />
           </div>
         )}
 
-        {/* Newest first */}
-        {[...entries].reverse().map((entry, i) => (
-          <ChatBubble
+        {reversed.length === 0 && !liveText && !status.is_recording && (
+          <EmptyState hotkey={status.hotkey} />
+        )}
+
+        {reversed.map((entry, i) => (
+          <motion.div
             key={`${entry.timestamp}-${i}`}
-            text={entry.text}
-            timestamp={entry.timestamp}
-            duration={entry.duration}
-            words={entry.words}
-            windowTitle={entry.window}
-            searchQuery={query}
-            audioFile={entry.audio_file}
-          />
+            initial={{ opacity: 0, y: 6 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.15, delay: Math.min(i * 0.03, 0.3) }}
+          >
+            <ChatBubble
+              text={entry.text}
+              timestamp={entry.timestamp}
+              duration={entry.duration}
+              words={entry.words}
+              windowTitle={entry.window}
+              searchQuery={query}
+              audioFile={entry.audio_file}
+            />
+          </motion.div>
         ))}
 
         {liveText && (
           <ChatBubble text={liveText} timestamp="" duration={0} words={0} windowTitle="" isLive />
         )}
       </div>
+    </div>
+  );
+}
+
+function Stat({ label, value, color }: { label: string; value: string; color: string }) {
+  return (
+    <div style={{ display: "flex", alignItems: "baseline", gap: 4 }}>
+      <span style={{
+        fontFamily: "var(--font-mono)",
+        fontSize: 13,
+        fontWeight: 700,
+        color,
+        letterSpacing: "-0.02em",
+      }}>
+        {value}
+      </span>
+      <span style={{
+        fontSize: 10,
+        color: "var(--text-tertiary)",
+        textTransform: "uppercase",
+        letterSpacing: "0.05em",
+      }}>
+        {label}
+      </span>
+    </div>
+  );
+}
+
+function EmptyState({ hotkey }: { hotkey?: string }) {
+  return (
+    <div className="flex-1 flex flex-col items-center justify-center" style={{ textAlign: "center", padding: 40 }}>
+      <div style={{
+        width: 64, height: 64,
+        borderRadius: "var(--radius-lg)",
+        background: "var(--accent-subtle)",
+        display: "flex", alignItems: "center", justifyContent: "center",
+        marginBottom: 20,
+        border: "1px solid var(--accent-glow)",
+      }}>
+        <Mic size={28} style={{ color: "var(--accent)" }} />
+      </div>
+      <h2 style={{
+        fontFamily: "var(--font-display)",
+        fontSize: 24,
+        fontWeight: 400,
+        color: "var(--text)",
+        letterSpacing: "-0.02em",
+      }}>
+        Tudo pronto.
+      </h2>
+      <p style={{
+        fontFamily: "var(--font-body)",
+        fontSize: 14,
+        color: "var(--text-secondary)",
+        marginTop: 8,
+        maxWidth: 280,
+        lineHeight: 1.6,
+      }}>
+        Pressione{" "}
+        <kbd style={{
+          padding: "2px 8px",
+          borderRadius: "var(--radius-sm)",
+          fontFamily: "var(--font-mono)",
+          fontSize: 11,
+          fontWeight: 600,
+          background: "var(--surface2)",
+          border: "1px solid var(--border)",
+          color: "var(--accent)",
+        }}>
+          {hotkey?.replace(/[<>]/g, "").toUpperCase() || "F9"}
+        </kbd>{" "}
+        e comece a ditar.
+      </p>
+      <p style={{
+        fontFamily: "var(--font-mono)",
+        fontSize: 10,
+        color: "var(--text-disabled)",
+        marginTop: 24,
+        letterSpacing: "0.05em",
+        textTransform: "uppercase",
+      }}>
+        100% offline · sua voz nunca sai do computador
+      </p>
     </div>
   );
 }

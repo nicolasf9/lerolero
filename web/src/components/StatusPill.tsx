@@ -1,29 +1,32 @@
 import { motion } from "framer-motion";
 
 const configs: Record<string, { bg: string; text: string; label: string }> = {
-  Loading:    { bg: "var(--text-tertiary)", text: "var(--bg)",   label: "Carregando..." },
-  Recording:  { bg: "#ef4444",             text: "#fff",         label: "● Gravando" },
-  Processing: { bg: "#f59e0b",             text: "#78350f",      label: "Pensando..." },
-  Ready:      { bg: "var(--success)",      text: "#042f2e",      label: "Pronto" },
-  Error:      { bg: "var(--danger)",       text: "#fff",         label: "Erro" },
+  Loading:    { bg: "var(--text-disabled)", text: "var(--bg)",      label: "..." },
+  Recording:  { bg: "var(--danger)",        text: "var(--bg)",      label: "● REC" },
+  Processing: { bg: "var(--warning)",       text: "var(--bg)",      label: "Processando" },
+  Ready:      { bg: "var(--success)",       text: "var(--bg)",      label: "Pronto" },
+  Error:      { bg: "var(--danger)",        text: "var(--bg)",      label: "Erro" },
 };
 
 export function StatusPill({ status, isRecording }: { status: string; isRecording: boolean }) {
   const c = configs[status] || configs.Ready;
   return (
     <motion.span
-      className="inline-flex items-center justify-center rounded-full font-semibold tracking-wide whitespace-nowrap"
+      className="inline-flex items-center justify-center font-semibold whitespace-nowrap"
       style={{
         background: c.bg,
         color: c.text,
-        padding: "6px 16px",
-        fontSize: 13,
+        padding: "5px 14px",
+        fontSize: 11,
+        fontFamily: "var(--font-mono)",
+        fontWeight: 600,
         lineHeight: 1,
-        minWidth: 90,
-        textAlign: "center",
+        letterSpacing: "0.04em",
+        textTransform: "uppercase",
+        borderRadius: "var(--radius-sm)",
       }}
-      animate={isRecording ? { scale: [1, 1.06, 1] } : {}}
-      transition={isRecording ? { duration: 1.2, repeat: Infinity, ease: "easeInOut" } : {}}
+      animate={isRecording ? { scale: [1, 1.05, 1] } : {}}
+      transition={isRecording ? { duration: 1, repeat: Infinity, ease: "easeInOut" } : {}}
     >
       {c.label}
     </motion.span>

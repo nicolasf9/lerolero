@@ -15,7 +15,6 @@ type Tab = "general" | "metrics" | "settings" | "about";
 
 export default function App() {
   const [activeTab, setActiveTab] = useState<Tab>("general");
-  // Skip preloader in dev (no pywebview)
   const [loading, setLoading] = useState(!!window.pywebview);
   const [status, setStatus] = useState<AppStatus>({
     status: "Loading", is_recording: false, is_processing: false,
@@ -27,7 +26,6 @@ export default function App() {
     document.documentElement.classList.toggle("dark", isDark);
   }, [isDark]);
 
-  // Load accent color from config on startup
   useEffect(() => {
     getConfig().then((c) => {
       const accent = c.accent_color as string | undefined;
@@ -49,48 +47,52 @@ export default function App() {
     return () => { u1(); u2(); clearTimeout(t); };
   }, []);
 
-  return (
-    <div className="flex h-full w-full overflow-hidden" style={{ background: "var(--bg)" }}>
-      {/* Dotted surface */}
-      <div
-        className="fixed inset-0 pointer-events-none"
-        style={{
-          zIndex: -1,
-          backgroundImage: "radial-gradient(circle, var(--accent) 0.8px, transparent 0.8px)",
-          backgroundSize: "24px 24px",
-          opacity: 0.12,
-        }}
-      />
+  const toggleDark = useCallback(() => setIsDark(d => !d), []);
 
+  return (
+    <div className="flex h-full w-full overflow-hidden noise-bg" style={{ background: "var(--bg)" }}>
       <Sidebar activeTab={activeTab} onTabChange={(t) => setActiveTab(t as Tab)} />
 
-      <div className="flex-1 flex flex-col min-w-0">
+      <div className="flex-1 flex flex-col min-w-0" style={{ position: "relative", zIndex: 1 }}>
         {/* Top bar */}
         <header
           className="flex items-center shrink-0"
           style={{
-            padding: "10px 24px",
-            gap: 12,
-            background: "var(--surface)",
+            padding: "8px 20px",
+            gap: 10,
             borderBottom: "1px solid var(--border)",
-            minHeight: 44,
+            minHeight: 42,
           }}
         >
           <StatusPill status={status.status} isRecording={status.is_recording} />
-          <span style={{ fontSize: 11, fontFamily: "monospace", color: "var(--text-tertiary)", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", minWidth: 0 }}>
+          <span style={{
+            fontFamily: "var(--font-mono)",
+            fontSize: 10,
+            color: "var(--text-disabled)",
+            overflow: "hidden",
+            textOverflow: "ellipsis",
+            whiteSpace: "nowrap",
+            minWidth: 0,
+            letterSpacing: "0.02em",
+          }}>
             {status.model?.split("/").pop()} · {status.backend} · {status.hotkey}
           </span>
           <div style={{ flex: 1 }} />
           <button
-            onClick={useCallback(() => setIsDark(d => !d), [])}
+            onClick={toggleDark}
+            aria-label="Alternar tema"
             style={{
-              width: 32, height: 32, borderRadius: 8,
+              width: 30, height: 30,
+              borderRadius: "var(--radius-sm)",
               display: "flex", alignItems: "center", justifyContent: "center",
-              color: "var(--text-tertiary)", background: "transparent",
-              border: "none", cursor: "pointer",
+              color: "var(--text-tertiary)",
+              background: "transparent",
+              border: "none",
+              cursor: "pointer",
+              transition: "color 0.15s",
             }}
           >
-            {isDark ? <Moon size={15} /> : <Sun size={15} />}
+            {isDark ? <Moon size={14} /> : <Sun size={14} />}
           </button>
         </header>
 
@@ -99,10 +101,10 @@ export default function App() {
           <AnimatePresence mode="wait">
             <motion.div
               key={activeTab}
-              initial={{ opacity: 0, y: 6 }}
+              initial={{ opacity: 0, y: 4 }}
               animate={{ opacity: 1, y: 0 }}
-              exit={{ opacity: 0, y: -6 }}
-              transition={{ duration: 0.12, ease: "easeOut" }}
+              exit={{ opacity: 0, y: -4 }}
+              transition={{ duration: 0.1, ease: "easeOut" }}
               className="absolute inset-0"
             >
               {activeTab === "general" && <GeneralView status={status} />}
@@ -117,7 +119,7 @@ export default function App() {
       {/* Preloader */}
       <AnimatePresence>
         {loading && (
-          <motion.div initial={{ opacity: 1 }} exit={{ opacity: 0 }} transition={{ duration: 0.4 }}
+          <motion.div initial={{ opacity: 1 }} exit={{ opacity: 0 }} transition={{ duration: 0.3 }}
                       className="fixed inset-0 z-50">
             <Preloader model={status.model} />
           </motion.div>
