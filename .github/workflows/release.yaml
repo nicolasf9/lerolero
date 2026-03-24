@@ -2,7 +2,12 @@ name: Release EXE
 
 on:
   push:
-    tags: ["v*"]
+    tags: ["v*", "[0-9]+.*"]
+  workflow_dispatch:
+    inputs:
+      version:
+        description: "Version (ex: 1.4.0)"
+        required: true
 
 permissions:
   contents: write
@@ -11,6 +16,8 @@ jobs:
   build-exe:
     name: Build Windows EXE
     runs-on: windows-latest
+    env:
+      VERSION: ${{ inputs.version || github.ref_name }}
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -69,15 +76,22 @@ jobs:
           New-Item -ItemType Directory -Force -Path "$distPath/history" | Out-Null
           New-Item -ItemType Directory -Force -Path "$distPath/models" | Out-Null
 
+      - name: Create tag
+        if: ${{ github.event_name == 'workflow_dispatch' }}
+        run: |
+          git tag "${{ env.VERSION }}"
+          git push origin "${{ env.VERSION }}"
+
       - name: Create ZIP archive
         shell: pwsh
         run: |
-          $tag = "${{ github.ref_name }}"
-          Compress-Archive -Path "dist/LeroLero" -DestinationPath "LeroLero-${tag}-win64.zip"
+          Compress-Archive -Path "dist/LeroLero" -DestinationPath "LeroLero-${{ env.VERSION }}-win64.zip"
 
       - name: Create GitHub Release
         uses: softprops/action-gh-release@v2
         with:
+          tag_name: ${{ env.VERSION }}
+          name: "LeroLero ${{ env.VERSION }}"
           files: LeroLero-*.zip
           generate_release_notes: true
           draft: false
