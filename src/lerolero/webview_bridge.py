@@ -11,11 +11,16 @@ import threading
 from dataclasses import asdict
 from typing import Any
 
-# Force pywebview to skip pythonnet/.NET backend — it crashes in frozen builds
-# because Python.Runtime.dll can't resolve inside PyInstaller bundles.
-# Must be set BEFORE importing webview.
-if sys.platform == "win32":
-    os.environ["PYWEBVIEW_GUI"] = "edgechromium"
+# Help pythonnet find the Python DLL inside PyInstaller frozen builds.
+# Without this, Python.Runtime.dll fails to resolve Python.Runtime.Loader.Initialize.
+# Must be set BEFORE importing webview (which triggers pythonnet import).
+if sys.platform == "win32" and getattr(sys, "frozen", False):
+    _pydll = os.path.join(
+        sys._MEIPASS,  # noqa: SLF001
+        f"python{sys.version_info.major}{sys.version_info.minor}.dll",
+    )
+    if os.path.exists(_pydll):
+        os.environ["PYTHONNET_PYDLL"] = _pydll
 
 import webview
 
@@ -387,7 +392,6 @@ def start_webview_app(controller: WhisperAppController) -> None:
 
     controller.set_status = _enhanced_set_status
 
-    # Force EdgeChromium (WebView2) on Windows — pythonnet/.NET backend
-    # fails inside frozen PyInstaller builds (Python.Runtime.dll not found)
+    # Force EdgeChromium (WebView2) on Windows via pythonnet
     gui_backend = "edgechromium" if sys.platform == "win32" else None
     webview.start(func=_on_loaded, debug=False, gui=gui_backend)

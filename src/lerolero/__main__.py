@@ -293,8 +293,10 @@ def main() -> None:
         try:
             from lerolero.webview_bridge import start_webview_app
             start_webview_app(controller)
-        except ImportError:
-            # Fallback to CustomTkinter GUI if webview not available
+        except Exception:
+            # Fallback to CustomTkinter GUI if webview fails for any reason
+            # (ImportError, pythonnet RuntimeError, missing WebView2, etc.)
+            logging.warning("Webview failed, falling back to CustomTkinter", exc_info=True)
             from lerolero.gui.app import WhisperAppGUI
             app = WhisperAppGUI(controller)
             app.mainloop()
