@@ -1,8 +1,11 @@
 ; LeroLero Inno Setup Installer
 ; Compile with Inno Setup 6+ (https://jrsoftware.org/isinfo.php)
+; Version is injected by CI via /D flag: iscc /DMyAppVersion=X.Y.Z
 
 #define MyAppName "LeroLero"
-#define MyAppVersion "1.3.4"
+#ifndef MyAppVersion
+  #define MyAppVersion "0.0.0"
+#endif
 #define MyAppPublisher "LeroLero"
 #define MyAppURL "https://github.com/nicolasf9/lerolero"
 #define MyAppExeName "LeroLero.exe"
