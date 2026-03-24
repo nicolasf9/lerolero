@@ -87,12 +87,30 @@ jobs:
         run: |
           Compress-Archive -Path "dist/LeroLero" -DestinationPath "LeroLero-${{ env.VERSION }}-win64.zip"
 
+      - name: Build Inno Setup installer
+        run: |
+          choco install innosetup -y --no-progress
+          iscc installer.iss
+
+      - name: Rename installer
+        shell: pwsh
+        run: |
+          $src = "dist/LeroLero-${{ env.VERSION }}-setup.exe"
+          if (Test-Path $src) {
+            Write-Host "Installer ready: $src"
+          } else {
+            Write-Host "Installer not found at expected path, listing dist/"
+            Get-ChildItem dist/ -Filter *.exe
+          }
+
       - name: Create GitHub Release
         uses: softprops/action-gh-release@v2
         with:
           tag_name: ${{ env.VERSION }}
           name: "LeroLero ${{ env.VERSION }}"
-          files: LeroLero-*.zip
+          files: |
+            LeroLero-*.zip
+            dist/LeroLero-*-setup.exe
           generate_release_notes: true
           draft: false
           prerelease: false

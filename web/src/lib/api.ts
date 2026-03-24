@@ -19,6 +19,7 @@ interface PyWebViewAPI {
   get_status(): Promise<AppStatus>;
   toggle_pause(): Promise<void>;
   get_personality(): Promise<{ greeting: string }>;
+  get_version(): Promise<string>;
 }
 
 export interface HistoryEntry {
@@ -145,6 +146,12 @@ export async function getPersonality(): Promise<{ greeting: string }> {
   const api = getApi();
   if (api) return api.get_personality();
   return { greeting: "Welcome to LeroLero!" };
+}
+
+export async function getVersion(): Promise<string> {
+  const api = getApi();
+  if (api) return api.get_version();
+  return "1.3.4";
 }
 
 // Event listener system — Python pushes events via evaluate_js

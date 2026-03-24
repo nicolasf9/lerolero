@@ -1,6 +1,14 @@
+import { useState, useEffect } from "react";
 import { Shield, Cpu, Globe } from "lucide-react";
+import { getVersion } from "@/lib/api";
 
 export function AboutView() {
+  const [version, setVersion] = useState("...");
+
+  useEffect(() => {
+    getVersion().then(setVersion);
+  }, []);
+
   return (
     <div className="h-full overflow-y-auto flex flex-col items-center justify-center text-center px-[var(--sp-8)]">
       <div className="max-w-[360px]">
@@ -8,7 +16,7 @@ export function AboutView() {
           LeroLero
         </h1>
         <p className="text-[12px] font-mono mt-[var(--sp-1)]" style={{ color: "var(--text-tertiary)" }}>
-          v1.0.0
+          v{version}
         </p>
 
         <p className="text-[14px] mt-[var(--sp-6)]" style={{ color: "var(--text-secondary)" }}>

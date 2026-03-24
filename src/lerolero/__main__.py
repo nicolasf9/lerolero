@@ -209,40 +209,38 @@ def _show_setup_window() -> bool:
 
     success = [False]
 
-    def update_progress(message: str, percent: int) -> None:
-        status.config(text=message)
-        if percent >= 0:
-            progress["value"] = percent
-        detail.config(text=f"{percent}% concluído" if percent >= 0 else message)
-        root.update()
+    def _update_ui(msg: str, pct: int) -> None:
+        """Thread-safe UI update via root.after()."""
+        def _do() -> None:
+            status.config(text=msg)
+            if pct >= 0:
+                progress["value"] = pct
+            detail.config(text=f"{pct}% concluído" if pct >= 0 else msg)
+        root.after(0, _do)
 
     def run_install() -> None:
         try:
             from lerolero.runtime_setup import install_deps
-            success[0] = install_deps(backend, update_progress)
+            success[0] = install_deps(backend, _update_ui)
             if success[0]:
-                # Download the configured model right after deps install
-                status.config(text="Baixando modelo de IA...", fg="#4FC3F7")
-                detail.config(text=f"Modelo: {config_model.split('/')[-1]}")
-                root.update()
-                download_model(config_model, update_progress)
-                status.config(text="✅ Tudo pronto!", fg="#4CAF50")
-                detail.config(text="Iniciando LeroLero...")
-                root.update()
+                root.after(0, lambda: status.config(text="Baixando modelo de IA...", fg="#4FC3F7"))
+                root.after(0, lambda: detail.config(text=f"Modelo: {config_model.split('/')[-1]}"))
+                download_model(config_model, _update_ui)
+                root.after(0, lambda: status.config(text="✅ Tudo pronto!", fg="#4CAF50"))
+                root.after(0, lambda: detail.config(text="Iniciando LeroLero..."))
             else:
-                status.config(text="❌ Falha na instalação", fg="#FF5252")
-                detail.config(text="Verifique sua conexão com a internet e tente novamente.")
-                root.update()
+                root.after(0, lambda: status.config(text="❌ Falha na instalação", fg="#FF5252"))
+                root.after(0, lambda: detail.config(text="Verifique sua conexão com a internet e tente novamente."))
                 import time
                 time.sleep(3)
         except Exception as e:
-            status.config(text=f"❌ Erro: {e}", fg="#FF5252")
-            root.update()
+            root.after(0, lambda: status.config(text=f"❌ Erro: {e}", fg="#FF5252"))
             import time
             time.sleep(5)
         root.after(800 if success[0] else 0, root.destroy)
 
-    root.after(300, run_install)
+    import threading
+    threading.Thread(target=run_install, daemon=True).start()
     root.mainloop()
     return success[0]
 

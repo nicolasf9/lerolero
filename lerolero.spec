@@ -8,6 +8,7 @@ hiddenimports = [
     'pynput.keyboard._win32', 'pynput.mouse._win32',
     'webview',
     'clr_loader', 'pythonnet',
+    'timeit',
 ]
 
 # Bundle app code + webview + customtkinter (fallback)
@@ -64,7 +65,7 @@ exe = EXE(
     bootloader_ignore_signals=False,
     strip=False,
     upx=True,
-    console=True,  # Keep console visible for setup/debugging
+    console=False,
     disable_windowed_traceback=False,
     argv_emulation=False,
     target_arch=None,

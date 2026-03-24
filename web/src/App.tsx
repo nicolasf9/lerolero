@@ -8,7 +8,7 @@ import { AboutView } from "./views/AboutView";
 import { Preloader } from "./components/ui/preloader";
 import { StatusPill } from "./components/StatusPill";
 import { Moon, Sun } from "lucide-react";
-import { on, getStatus, getConfig, type AppStatus } from "./lib/api";
+import { on, getStatus, getConfig, saveConfig, type AppStatus } from "./lib/api";
 import { applyAccentColor } from "./views/SettingsView";
 
 type Tab = "general" | "metrics" | "settings" | "about";
@@ -20,7 +20,10 @@ export default function App() {
     status: "Loading", is_recording: false, is_processing: false,
     pending_text: null, model: "...", backend: "detecting...", hotkey: "...",
   });
-  const [isDark, setIsDark] = useState(true);
+  const [isDark, setIsDark] = useState(() => {
+    // Start with system preference, config will override once loaded
+    return window.matchMedia?.("(prefers-color-scheme: dark)").matches ?? true;
+  });
 
   useEffect(() => {
     document.documentElement.classList.toggle("dark", isDark);
@@ -28,6 +31,10 @@ export default function App() {
 
   useEffect(() => {
     getConfig().then((c) => {
+      // Load saved theme from config, or follow system preference
+      if (c.theme === "dark" || c.theme === "light") {
+        setIsDark(c.theme === "dark");
+      }
       const accent = c.accent_color as string | undefined;
       if (accent) applyAccentColor(accent);
     });
@@ -47,7 +54,14 @@ export default function App() {
     return () => { u1(); u2(); clearTimeout(t); };
   }, []);
 
-  const toggleDark = useCallback(() => setIsDark(d => !d), []);
+  const toggleDark = useCallback(() => {
+    setIsDark(d => {
+      const next = !d;
+      // Persist theme to config (only sends theme key, no engine reload)
+      saveConfig({ theme: next ? "dark" : "light" });
+      return next;
+    });
+  }, []);
 
   return (
     <div className="flex h-full w-full overflow-hidden noise-bg" style={{ background: "var(--bg)" }}>

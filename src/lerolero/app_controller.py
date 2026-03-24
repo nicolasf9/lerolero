@@ -214,12 +214,18 @@ class WhisperAppController:
                     if not parakeet_available():
                         self.log("Instalando Parakeet automaticamente...")
                         try:
-                            import subprocess
-                            subprocess.check_call(
-                                [sys.executable, "-m", "pip", "install", "onnx-asr"],
-                                stdout=subprocess.PIPE, stderr=subprocess.PIPE,
-                            )
-                            self.log("Parakeet instalado com sucesso!")
+                            from lerolero.runtime_setup import _get_deps_dir, _get_embedded_python, _pip_install
+                            python_exe = _get_embedded_python()
+                            if python_exe:
+                                deps_dir = _get_deps_dir()
+                                deps_dir.mkdir(parents=True, exist_ok=True)
+                                success, error = _pip_install(python_exe, ["onnx-asr"], deps_dir)
+                                if success:
+                                    self.log("Parakeet instalado com sucesso!")
+                                else:
+                                    raise RuntimeError(error)
+                            else:
+                                raise RuntimeError("Embedded Python not found")
                         except Exception as e:
                             self.log(f"Falha ao instalar Parakeet: {e}")
                             self.log("Voltando para Whisper...")
