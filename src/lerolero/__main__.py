@@ -92,19 +92,8 @@ def _ensure_model_downloaded(model_id: str) -> bool:
     return True
 
 
-def _show_setup_window() -> bool:
-    """Show a setup/progress window while installing ML dependencies.
-
-    Returns True if setup succeeded, False otherwise.
-    """
-    import tkinter as tk
-    from tkinter import ttk
-
-    from lerolero.runtime_setup import check_deps_installed, detect_gpu_simple, download_model
-
-    backend = detect_gpu_simple()
-
-    # Read user's configured model (default: whisper-base)
+def _read_config_model() -> str:
+    """Read the configured model from config.json."""
     config_model = "openai/whisper-base"
     try:
         import json
@@ -115,12 +104,67 @@ def _show_setup_window() -> bool:
                 config_model = json.load(f).get("model", config_model)
     except Exception:
         pass
+    return config_model
+
+
+def _get_cached_backend() -> str | None:
+    """Read cached GPU backend from config to avoid slow wmic detection."""
+    try:
+        import json
+        from lerolero.paths import get_config_path
+        cfg_path = get_config_path()
+        if cfg_path.exists():
+            with cfg_path.open() as f:
+                return json.load(f).get("_detected_backend")
+    except Exception:
+        pass
+    return None
+
+
+def _cache_backend(backend: str) -> None:
+    """Save detected GPU backend to config for fast startup."""
+    try:
+        import json
+        from lerolero.paths import get_config_path
+        cfg_path = get_config_path()
+        cfg = {}
+        if cfg_path.exists():
+            with cfg_path.open() as f:
+                cfg = json.load(f)
+        cfg["_detected_backend"] = backend
+        with cfg_path.open("w") as f:
+            json.dump(cfg, f, indent=4)
+    except Exception:
+        pass
+
+
+def _show_setup_window() -> bool:
+    """Show a setup/progress window while installing ML dependencies.
+
+    Returns True if setup succeeded, False otherwise.
+    Skips silently if everything is already installed.
+    """
+    from lerolero.runtime_setup import check_deps_installed, detect_gpu_simple, download_model
+
+    # Use cached backend to skip slow GPU detection on subsequent launches
+    backend = _get_cached_backend()
+    if backend and check_deps_installed(backend):
+        config_model = _read_config_model()
+        return _ensure_model_downloaded(config_model)
+
+    # First run or cache miss — detect GPU (slow, runs wmic)
+    backend = detect_gpu_simple()
+    _cache_backend(backend)
+    config_model = _read_config_model()
 
     if check_deps_installed(backend):
-        # Deps installed, but check if model needs downloading
+        # Deps installed — check model silently, no tkinter window
         return _ensure_model_downloaded(config_model)
 
     # Need to install — show progress UI
+    import tkinter as tk
+    from tkinter import ttk
+
     root = tk.Tk()
     root.title("LeroLero — Configuração Inicial")
     root.configure(bg="#0D0D0D")
