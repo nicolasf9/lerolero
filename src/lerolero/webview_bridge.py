@@ -236,6 +236,34 @@ class WebViewAPI:
                 pass
         return sorted(apps)[:20]
 
+    # ── Updates ──────────────────────────────────────────────────────
+
+    def check_update(self) -> dict:
+        """Check for a new version on GitHub. Returns {} if up to date or offline."""
+        try:
+            from lerolero.updater import check_for_update, get_current_version
+            result = check_for_update()
+            if result:
+                return result
+            return {"current_version": get_current_version(), "up_to_date": True}
+        except Exception:
+            return {}
+
+    def apply_update(self, download_url: str) -> dict:
+        """Download and apply an update. Returns status dict."""
+        try:
+            from lerolero.updater import download_and_apply_update
+            success = download_and_apply_update(download_url)
+            if success:
+                return {"status": "restarting"}
+            return {"status": "manual", "message": "Atualize via: git pull && cd web && npm run build"}
+        except Exception as e:
+            return {"status": "error", "message": str(e)}
+
+    def get_version(self) -> str:
+        from lerolero.updater import get_current_version
+        return get_current_version()
+
     # ── Status ───────────────────────────────────────────────────────
 
     def get_status(self) -> dict:
