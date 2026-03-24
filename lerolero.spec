@@ -7,11 +7,12 @@ binaries = []
 hiddenimports = [
     'pynput.keyboard._win32', 'pynput.mouse._win32',
     'webview',
+    'clr_loader', 'pythonnet',
 ]
 
 # Bundle app code + webview + customtkinter (fallback)
 # pip NOT bundled — embedded Python downloads it at runtime
-for pkg in ('lerolero', 'customtkinter', 'webview'):
+for pkg in ('lerolero', 'customtkinter', 'webview', 'clr_loader', 'pythonnet'):
     try:
         tmp = collect_all(pkg)
         datas += tmp[0]; binaries += tmp[1]; hiddenimports += tmp[2]
@@ -27,9 +28,7 @@ if os.path.exists(web_dist):
 datas += [('src/lerolero/assets/icon.ico', 'lerolero/assets')]
 datas += [('src/lerolero/assets/icon.png', 'lerolero/assets')]
 
-# Exclude ALL heavy ML deps — installed at runtime
-# Also exclude pythonnet/.NET — pywebview uses EdgeChromium (WebView2) on Windows,
-# pythonnet's Python.Runtime.dll fails inside frozen PyInstaller builds
+# Exclude heavy ML deps — installed at runtime
 EXCLUDE_HEAVY = [
     'torch', 'torchvision', 'torchaudio', 'torch._C', 'torch.cuda',
     'caffe2', 'functorch',
@@ -38,7 +37,6 @@ EXCLUDE_HEAVY = [
     'huggingface_hub', 'accelerate',
     'onnxruntime', 'onnx',
     'scipy', 'scipy.special',
-    'pythonnet', 'clr', 'clr_loader', 'Python.Runtime',
 ]
 
 a = Analysis(
