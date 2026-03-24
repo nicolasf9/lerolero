@@ -4,12 +4,12 @@ from unittest.mock import MagicMock, patch
 
 import numpy as np
 
-from whisper_typing.transcriber import _VAD_FRAME_SAMPLES, Transcriber
+from lerolero.transcriber import _VAD_FRAME_SAMPLES, Transcriber
 
 
-@patch("whisper_typing.transcriber.pipeline")
-@patch("whisper_typing.transcriber.OVModelForSpeechSeq2Seq")
-@patch("whisper_typing.transcriber.AutoProcessor")
+@patch("lerolero.transcriber.pipeline")
+@patch("lerolero.transcriber.OVModelForSpeechSeq2Seq")
+@patch("lerolero.transcriber.AutoProcessor")
 def test_transcriber_initialization_cpu(
     mock_auto_processor: MagicMock,  # noqa: ARG001
     mock_ov_model: MagicMock,
@@ -23,9 +23,9 @@ def test_transcriber_initialization_cpu(
     mock_pipeline.assert_called_once()
 
 
-@patch("whisper_typing.transcriber.pipeline")
-@patch("whisper_typing.transcriber.OVModelForSpeechSeq2Seq")
-@patch("whisper_typing.transcriber.AutoProcessor")
+@patch("lerolero.transcriber.pipeline")
+@patch("lerolero.transcriber.OVModelForSpeechSeq2Seq")
+@patch("lerolero.transcriber.AutoProcessor")
 def test_transcriber_initialization_cuda_auto(
     mock_auto_processor: MagicMock,  # noqa: ARG001
     mock_ov_model: MagicMock,  # noqa: ARG001
@@ -37,9 +37,9 @@ def test_transcriber_initialization_cuda_auto(
     assert transcriber.compute_type == "float16"
 
 
-@patch("whisper_typing.transcriber.pipeline")
-@patch("whisper_typing.transcriber.OVModelForSpeechSeq2Seq")
-@patch("whisper_typing.transcriber.AutoProcessor")
+@patch("lerolero.transcriber.pipeline")
+@patch("lerolero.transcriber.OVModelForSpeechSeq2Seq")
+@patch("lerolero.transcriber.AutoProcessor")
 def test_transcriber_initialization_gpu_device(
     mock_auto_processor: MagicMock,  # noqa: ARG001
     mock_ov_model: MagicMock,  # noqa: ARG001
@@ -51,9 +51,9 @@ def test_transcriber_initialization_gpu_device(
     assert transcriber.compute_type == "float16"
 
 
-@patch("whisper_typing.transcriber.pipeline")
-@patch("whisper_typing.transcriber.OVModelForSpeechSeq2Seq")
-@patch("whisper_typing.transcriber.AutoProcessor")
+@patch("lerolero.transcriber.pipeline")
+@patch("lerolero.transcriber.OVModelForSpeechSeq2Seq")
+@patch("lerolero.transcriber.AutoProcessor")
 def test_transcriber_cpu_auto_compute(
     mock_auto_processor: MagicMock,  # noqa: ARG001
     mock_ov_model: MagicMock,  # noqa: ARG001
@@ -65,9 +65,9 @@ def test_transcriber_cpu_auto_compute(
     assert transcriber.compute_type == "int8"
 
 
-@patch("whisper_typing.transcriber.pipeline")
-@patch("whisper_typing.transcriber.OVModelForSpeechSeq2Seq")
-@patch("whisper_typing.transcriber.AutoProcessor")
+@patch("lerolero.transcriber.pipeline")
+@patch("lerolero.transcriber.OVModelForSpeechSeq2Seq")
+@patch("lerolero.transcriber.AutoProcessor")
 def test_transcribe_success_dict(
     mock_auto_processor: MagicMock,  # noqa: ARG001
     mock_ov_model: MagicMock,  # noqa: ARG001
@@ -88,9 +88,9 @@ def test_transcribe_success_dict(
     assert kwargs["generate_kwargs"]["language"] == "en"
 
 
-@patch("whisper_typing.transcriber.pipeline")
-@patch("whisper_typing.transcriber.OVModelForSpeechSeq2Seq")
-@patch("whisper_typing.transcriber.AutoProcessor")
+@patch("lerolero.transcriber.pipeline")
+@patch("lerolero.transcriber.OVModelForSpeechSeq2Seq")
+@patch("lerolero.transcriber.AutoProcessor")
 def test_transcribe_no_language(
     mock_auto_processor: MagicMock,  # noqa: ARG001
     mock_ov_model: MagicMock,  # noqa: ARG001
@@ -108,9 +108,9 @@ def test_transcribe_no_language(
     assert kwargs["generate_kwargs"] == {}
 
 
-@patch("whisper_typing.transcriber.pipeline")
-@patch("whisper_typing.transcriber.OVModelForSpeechSeq2Seq")
-@patch("whisper_typing.transcriber.AutoProcessor")
+@patch("lerolero.transcriber.pipeline")
+@patch("lerolero.transcriber.OVModelForSpeechSeq2Seq")
+@patch("lerolero.transcriber.AutoProcessor")
 def test_transcribe_english_only_model_skips_language(
     mock_auto_processor: MagicMock,  # noqa: ARG001
     mock_ov_model: MagicMock,  # noqa: ARG001
@@ -130,9 +130,9 @@ def test_transcribe_english_only_model_skips_language(
     assert kwargs["generate_kwargs"] == {}
 
 
-@patch("whisper_typing.transcriber.pipeline")
-@patch("whisper_typing.transcriber.OVModelForSpeechSeq2Seq")
-@patch("whisper_typing.transcriber.AutoProcessor")
+@patch("lerolero.transcriber.pipeline")
+@patch("lerolero.transcriber.OVModelForSpeechSeq2Seq")
+@patch("lerolero.transcriber.AutoProcessor")
 def test_transcribe_multiple_segments(
     mock_auto_processor: MagicMock,  # noqa: ARG001
     mock_ov_model: MagicMock,  # noqa: ARG001
@@ -149,9 +149,9 @@ def test_transcribe_multiple_segments(
     assert result == "Hello world"
 
 
-@patch("whisper_typing.transcriber.pipeline")
-@patch("whisper_typing.transcriber.OVModelForSpeechSeq2Seq")
-@patch("whisper_typing.transcriber.AutoProcessor")
+@patch("lerolero.transcriber.pipeline")
+@patch("lerolero.transcriber.OVModelForSpeechSeq2Seq")
+@patch("lerolero.transcriber.AutoProcessor")
 def test_transcribe_empty_list(
     mock_auto_processor: MagicMock,  # noqa: ARG001
     mock_ov_model: MagicMock,  # noqa: ARG001
@@ -165,9 +165,9 @@ def test_transcribe_empty_list(
     assert result == ""
 
 
-@patch("whisper_typing.transcriber.pipeline")
-@patch("whisper_typing.transcriber.OVModelForSpeechSeq2Seq")
-@patch("whisper_typing.transcriber.AutoProcessor")
+@patch("lerolero.transcriber.pipeline")
+@patch("lerolero.transcriber.OVModelForSpeechSeq2Seq")
+@patch("lerolero.transcriber.AutoProcessor")
 def test_transcribe_unexpected_return_type(
     mock_auto_processor: MagicMock,  # noqa: ARG001
     mock_ov_model: MagicMock,  # noqa: ARG001
@@ -207,9 +207,9 @@ def test_has_speech_multidim() -> None:
     assert Transcriber._has_speech(audio) is True  # noqa: SLF001
 
 
-@patch("whisper_typing.transcriber.pipeline")
-@patch("whisper_typing.transcriber.OVModelForSpeechSeq2Seq")
-@patch("whisper_typing.transcriber.AutoProcessor")
+@patch("lerolero.transcriber.pipeline")
+@patch("lerolero.transcriber.OVModelForSpeechSeq2Seq")
+@patch("lerolero.transcriber.AutoProcessor")
 def test_transcribe_vad_rejects_silence(
     mock_auto_processor: MagicMock,  # noqa: ARG001
     mock_ov_model: MagicMock,  # noqa: ARG001
@@ -225,9 +225,9 @@ def test_transcribe_vad_rejects_silence(
     transcriber.pipe.assert_not_called()
 
 
-@patch("whisper_typing.transcriber.pipeline")
-@patch("whisper_typing.transcriber.OVModelForSpeechSeq2Seq")
-@patch("whisper_typing.transcriber.AutoProcessor")
+@patch("lerolero.transcriber.pipeline")
+@patch("lerolero.transcriber.OVModelForSpeechSeq2Seq")
+@patch("lerolero.transcriber.AutoProcessor")
 def test_transcribe_vad_passes_speech(
     mock_auto_processor: MagicMock,  # noqa: ARG001
     mock_ov_model: MagicMock,  # noqa: ARG001

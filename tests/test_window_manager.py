@@ -2,7 +2,7 @@
 
 from unittest.mock import MagicMock, patch
 
-from whisper_typing.window_manager import WindowManager
+from lerolero.window_manager import WindowManager
 
 
 @patch("ctypes.windll.user32")

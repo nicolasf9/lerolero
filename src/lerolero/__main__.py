@@ -21,6 +21,77 @@ def _show_error_dialog(title: str, message: str) -> None:
         input("\nPressione Enter para fechar...")
 
 
+def _ensure_model_downloaded(model_id: str) -> bool:
+    """Check if model is already cached, download if not. Returns True always."""
+    try:
+        from lerolero.runtime_setup import _add_deps_to_path
+        _add_deps_to_path()
+
+        is_parakeet = "parakeet" in model_id.lower()
+        if is_parakeet:
+            # Parakeet caching is handled internally by onnx-asr, skip check
+            return True
+
+        from huggingface_hub import try_to_load_from_cache
+        # If any model file is cached, assume model is downloaded
+        result = try_to_load_from_cache(model_id, "config.json")
+        if result is not None:
+            return True
+    except Exception:
+        return True  # Can't check, let it download later
+
+    # Model not cached — show a quick download window
+    import tkinter as tk
+    from tkinter import ttk
+    from lerolero.runtime_setup import download_model
+
+    root = tk.Tk()
+    root.title("LeroLero — Baixando Modelo")
+    root.configure(bg="#0D0D0D")
+    root.geometry("480x180")
+    root.resizable(False, False)
+
+    root.update_idletasks()
+    x = (root.winfo_screenwidth() - 480) // 2
+    y = (root.winfo_screenheight() - 180) // 2
+    root.geometry(f"+{x}+{y}")
+
+    tk.Label(
+        root, text=f"Baixando modelo {model_id.split('/')[-1]}...",
+        font=("Segoe UI", 12), bg="#0D0D0D", fg="#E0E0E0",
+    ).pack(pady=(30, 10))
+
+    style = ttk.Style()
+    style.theme_use("clam")
+    style.configure(
+        "Custom.Horizontal.TProgressbar",
+        troughcolor="#1A1A1A", background="#7C4DFF", thickness=12,
+    )
+    progress = ttk.Progressbar(
+        root, style="Custom.Horizontal.TProgressbar",
+        orient="horizontal", length=400, mode="indeterminate",
+    )
+    progress.pack(pady=10)
+    progress.start(15)
+
+    status = tk.Label(
+        root, text="Isso pode levar alguns minutos...",
+        font=("Segoe UI", 9), bg="#0D0D0D", fg="#888888",
+    )
+    status.pack(pady=5)
+
+    def run_download():
+        def cb(msg, pct):
+            status.config(text=msg)
+            root.update()
+        download_model(model_id, cb)
+        root.after(500, root.destroy)
+
+    root.after(300, run_download)
+    root.mainloop()
+    return True
+
+
 def _show_setup_window() -> bool:
     """Show a setup/progress window while installing ML dependencies.
 
@@ -29,12 +100,25 @@ def _show_setup_window() -> bool:
     import tkinter as tk
     from tkinter import ttk
 
-    from lerolero.runtime_setup import check_deps_installed, detect_gpu_simple
+    from lerolero.runtime_setup import check_deps_installed, detect_gpu_simple, download_model
 
     backend = detect_gpu_simple()
 
+    # Read user's configured model (default: whisper-base)
+    config_model = "openai/whisper-base"
+    try:
+        import json
+        from lerolero.paths import get_config_path
+        cfg_path = get_config_path()
+        if cfg_path.exists():
+            with cfg_path.open() as f:
+                config_model = json.load(f).get("model", config_model)
+    except Exception:
+        pass
+
     if check_deps_installed(backend):
-        return True
+        # Deps installed, but check if model needs downloading
+        return _ensure_model_downloaded(config_model)
 
     # Need to install — show progress UI
     root = tk.Tk()
@@ -137,7 +221,12 @@ def _show_setup_window() -> bool:
             from lerolero.runtime_setup import install_deps
             success[0] = install_deps(backend, update_progress)
             if success[0]:
-                status.config(text="✅ Instalação concluída!", fg="#4CAF50")
+                # Download the configured model right after deps install
+                status.config(text="Baixando modelo de IA...", fg="#4FC3F7")
+                detail.config(text=f"Modelo: {config_model.split('/')[-1]}")
+                root.update()
+                download_model(config_model, update_progress)
+                status.config(text="✅ Tudo pronto!", fg="#4CAF50")
                 detail.config(text="Iniciando LeroLero...")
                 root.update()
             else:

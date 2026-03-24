@@ -11,6 +11,12 @@ import threading
 from dataclasses import asdict
 from typing import Any
 
+# Force pywebview to skip pythonnet/.NET backend — it crashes in frozen builds
+# because Python.Runtime.dll can't resolve inside PyInstaller bundles.
+# Must be set BEFORE importing webview.
+if sys.platform == "win32":
+    os.environ["PYWEBVIEW_GUI"] = "edgechromium"
+
 import webview
 
 
@@ -206,7 +212,10 @@ class WebViewAPI:
         import base64
         if not filename:
             return ""
-        audio_path = get_history_dir() / "audio" / filename
+        audio_dir = (get_history_dir() / "audio").resolve()
+        audio_path = (audio_dir / filename).resolve()
+        if not audio_path.is_relative_to(audio_dir):
+            return ""
         if not audio_path.exists():
             return ""
         try:

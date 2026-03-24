@@ -1,6 +1,6 @@
 """Tests for constants module."""
 
-from whisper_typing.constants import WHISPER_MODELS
+from lerolero.constants import WHISPER_MODELS
 
 
 def test_whisper_models_list() -> None:

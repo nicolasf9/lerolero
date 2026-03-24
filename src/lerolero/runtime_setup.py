@@ -267,7 +267,6 @@ def _pip_install(python_exe: Path, packages: list[str], target: Path,
         "--target", str(target),
         "--no-warn-script-location",
         "--disable-pip-version-check",
-        "--no-cache-dir",
     ]
     if extra_args:
         cmd.extend(extra_args)
@@ -378,25 +377,39 @@ def install_deps(backend: str, progress_callback=None) -> bool:
             progress_callback(f"Erro: {e}", -1)
         return False
 
-    # Step 2: Install packages one by one with progress
+    # Step 2: Install all packages in a single pip call (much faster than one-by-one)
     packages = _BACKEND_PACKAGES.get(backend, _BACKEND_PACKAGES["cpu"])
-    total = len(packages)
 
-    for i, pkg in enumerate(packages):
-        pct = 25 + int((i / total) * 70)  # 25-95%
-        if progress_callback:
-            progress_callback(f"Instalando {pkg}... ({i+1}/{total})", pct)
-        _log_to_file(f"Installing {pkg} ({i+1}/{total})")
+    # CUDA: torch/torchaudio need a custom index, install them first
+    if backend == "cuda":
+        torch_pkgs = [p for p in packages if p in ("torch", "torchaudio")]
+        other_pkgs = [p for p in packages if p not in ("torch", "torchaudio")]
 
-        extra_args = None
-        if backend == "cuda" and pkg in ("torch", "torchaudio"):
-            extra_args = ["--index-url", _PYTORCH_INDEX]
-
-        success, error = _pip_install(python_exe, [pkg], deps_dir, extra_args)
-        if not success:
-            _log_to_file(f"FAILED: {pkg} — {error}")
+        if torch_pkgs:
             if progress_callback:
-                progress_callback(f"Erro em {pkg}: {error[:80]}", -1)
+                progress_callback(f"Instalando {', '.join(torch_pkgs)}...", 25)
+            _log_to_file(f"Installing torch packages: {torch_pkgs}")
+            success, error = _pip_install(
+                python_exe, torch_pkgs, deps_dir,
+                ["--index-url", _PYTORCH_INDEX],
+            )
+            if not success:
+                _log_to_file(f"FAILED: torch — {error}")
+                if progress_callback:
+                    progress_callback(f"Erro em torch: {error[:80]}", -1)
+                return False
+
+        packages = other_pkgs
+
+    if packages:
+        if progress_callback:
+            progress_callback(f"Instalando {len(packages)} pacotes...", 50)
+        _log_to_file(f"Installing all packages in one call: {packages}")
+        success, error = _pip_install(python_exe, packages, deps_dir)
+        if not success:
+            _log_to_file(f"FAILED: {error}")
+            if progress_callback:
+                progress_callback(f"Erro na instalação: {error[:80]}", -1)
             return False
 
     if progress_callback:
@@ -405,6 +418,49 @@ def install_deps(backend: str, progress_callback=None) -> bool:
     _add_deps_to_path()
     _log_to_file("=== Installation complete ===")
     return True
+
+
+def download_model(model_id: str, progress_callback=None) -> bool:
+    """Pre-download the configured model so first transcription is instant.
+
+    Supports both Whisper (HuggingFace) and Parakeet (onnx-asr) models.
+    Must be called AFTER install_deps so the ML libraries are importable.
+    """
+    _add_deps_to_path()
+    _log_to_file(f"=== Downloading model: {model_id} ===")
+
+    if progress_callback:
+        progress_callback(f"Baixando modelo {model_id.split('/')[-1]}...", 0)
+
+    is_parakeet = "parakeet" in model_id.lower()
+
+    try:
+        if is_parakeet:
+            # Parakeet downloads via onnx-asr Recognizer constructor
+            import onnx_asr  # noqa: F401
+            if progress_callback:
+                progress_callback("Baixando modelo Parakeet v3...", 30)
+            _log_to_file("Downloading Parakeet model via onnx-asr...")
+            onnx_asr.Recognizer(model=model_id)
+        else:
+            # Whisper models: download via huggingface_hub (no full pipeline load)
+            from huggingface_hub import snapshot_download
+            if progress_callback:
+                progress_callback(f"Baixando modelo {model_id.split('/')[-1]}...", 30)
+            _log_to_file(f"Downloading HuggingFace model: {model_id}")
+            snapshot_download(repo_id=model_id)
+
+        _log_to_file(f"Model {model_id} downloaded successfully")
+        if progress_callback:
+            progress_callback("✅ Modelo baixado!", 100)
+        return True
+
+    except Exception as e:
+        _log_to_file(f"Model download failed: {e}")
+        if progress_callback:
+            progress_callback(f"⚠ Modelo será baixado depois: {e!s:.60s}", -1)
+        # Non-fatal: model will download on first transcription
+        return False
 
 
 def ensure_deps(progress_callback=None) -> str:
