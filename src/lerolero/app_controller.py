@@ -67,7 +67,7 @@ def load_config() -> dict[str, Any]:
             with path.open() as f:
                 return json.load(f)
         except Exception:  # noqa: BLE001, S110
-            pass
+            logger.debug("Failed to load config from %s", path, exc_info=True)
     return {}
 
 
@@ -80,7 +80,7 @@ def save_config(config: dict[str, Any]) -> None:
         with get_config_path().open("w") as f:
             json.dump(save_data, f, indent=4)
     except Exception:  # noqa: BLE001, S110
-        pass
+        logger.debug("Failed to save config", exc_info=True)
 
 
 class WhisperAppController:

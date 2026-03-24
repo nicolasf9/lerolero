@@ -24,9 +24,8 @@ jobs:
       - name: Check Lint
         run: uv run ruff check
 
-      # skip untill we have windows runner
-      # - name: Test Package
-      #   run: uv run pytest -v
+      - name: Test Package
+        run: uv run pytest -v
 
       - name: Build Package
         run: uv build

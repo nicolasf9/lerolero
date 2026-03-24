@@ -206,7 +206,10 @@ class WebViewAPI:
         import base64
         if not filename:
             return ""
-        audio_path = get_history_dir() / "audio" / filename
+        audio_dir = (get_history_dir() / "audio").resolve()
+        audio_path = (audio_dir / filename).resolve()
+        if not audio_path.is_relative_to(audio_dir):
+            return ""
         if not audio_path.exists():
             return ""
         try:

@@ -267,7 +267,6 @@ def _pip_install(python_exe: Path, packages: list[str], target: Path,
         "--target", str(target),
         "--no-warn-script-location",
         "--disable-pip-version-check",
-        "--no-cache-dir",
     ]
     if extra_args:
         cmd.extend(extra_args)
@@ -378,25 +377,39 @@ def install_deps(backend: str, progress_callback=None) -> bool:
             progress_callback(f"Erro: {e}", -1)
         return False
 
-    # Step 2: Install packages one by one with progress
+    # Step 2: Install all packages in a single pip call (much faster than one-by-one)
     packages = _BACKEND_PACKAGES.get(backend, _BACKEND_PACKAGES["cpu"])
-    total = len(packages)
 
-    for i, pkg in enumerate(packages):
-        pct = 25 + int((i / total) * 70)  # 25-95%
-        if progress_callback:
-            progress_callback(f"Instalando {pkg}... ({i+1}/{total})", pct)
-        _log_to_file(f"Installing {pkg} ({i+1}/{total})")
+    # CUDA: torch/torchaudio need a custom index, install them first
+    if backend == "cuda":
+        torch_pkgs = [p for p in packages if p in ("torch", "torchaudio")]
+        other_pkgs = [p for p in packages if p not in ("torch", "torchaudio")]
 
-        extra_args = None
-        if backend == "cuda" and pkg in ("torch", "torchaudio"):
-            extra_args = ["--index-url", _PYTORCH_INDEX]
-
-        success, error = _pip_install(python_exe, [pkg], deps_dir, extra_args)
-        if not success:
-            _log_to_file(f"FAILED: {pkg} — {error}")
+        if torch_pkgs:
             if progress_callback:
-                progress_callback(f"Erro em {pkg}: {error[:80]}", -1)
+                progress_callback(f"Instalando {', '.join(torch_pkgs)}...", 25)
+            _log_to_file(f"Installing torch packages: {torch_pkgs}")
+            success, error = _pip_install(
+                python_exe, torch_pkgs, deps_dir,
+                ["--index-url", _PYTORCH_INDEX],
+            )
+            if not success:
+                _log_to_file(f"FAILED: torch — {error}")
+                if progress_callback:
+                    progress_callback(f"Erro em torch: {error[:80]}", -1)
+                return False
+
+        packages = other_pkgs
+
+    if packages:
+        if progress_callback:
+            progress_callback(f"Instalando {len(packages)} pacotes...", 50)
+        _log_to_file(f"Installing all packages in one call: {packages}")
+        success, error = _pip_install(python_exe, packages, deps_dir)
+        if not success:
+            _log_to_file(f"FAILED: {error}")
+            if progress_callback:
+                progress_callback(f"Erro na instalação: {error[:80]}", -1)
             return False
 
     if progress_callback:

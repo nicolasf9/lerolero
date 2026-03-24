@@ -5,7 +5,7 @@ from unittest.mock import MagicMock, patch
 
 import numpy as np
 
-from whisper_typing.audio_capture import AudioRecorder
+from lerolero.audio_capture import AudioRecorder
 
 FAKE_FRAME_SIZE = 10
 LARGE_FRAME_SIZE = 100

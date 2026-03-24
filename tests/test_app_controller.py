@@ -7,18 +7,18 @@ from unittest.mock import MagicMock, patch
 
 import pytest
 
-from whisper_typing.app_controller import DEFAULT_CONFIG, WhisperAppController
+from lerolero.app_controller import DEFAULT_CONFIG, WhisperAppController
 
 
 @pytest.fixture
 def mock_dependencies() -> Generator[dict[str, Any]]:
     """Mock all external dependencies for the controller."""
     with (
-        patch("whisper_typing.app_controller.AudioRecorder") as mock_recorder,
-        patch("whisper_typing.app_controller.Transcriber") as mock_transcriber,
-        patch("whisper_typing.app_controller.WindowManager") as mock_window_manager,
+        patch("lerolero.app_controller.AudioRecorder") as mock_recorder,
+        patch("lerolero.app_controller.Transcriber") as mock_transcriber,
+        patch("lerolero.app_controller.WindowManager") as mock_window_manager,
         patch("pynput.keyboard.GlobalHotKeys") as mock_hotkeys,
-        patch("whisper_typing.app_controller.sd") as mock_sd,
+        patch("lerolero.app_controller.sd") as mock_sd,
     ):
         yield {
             "recorder": mock_recorder,

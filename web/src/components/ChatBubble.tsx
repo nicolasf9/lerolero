@@ -17,10 +17,11 @@ function HighlightText({ text, query }: { text: string; query: string }) {
   if (!query || query.length < 2) return <>{text}</>;
   const regex = new RegExp(`(${query.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")})`, "gi");
   const parts = text.split(regex);
+  const escaped = query.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
   return (
     <>
       {parts.map((part, i) =>
-        regex.test(part) ? (
+        new RegExp(`^${escaped}$`, "i").test(part) ? (
           <mark key={i} style={{
             background: "var(--accent)",
             color: "var(--bg)",
