@@ -22,7 +22,7 @@ logger = logging.getLogger(__name__)
 
 _GITHUB_REPO = "nicolasf9/lerolero"
 _RELEASES_URL = f"https://api.github.com/repos/{_GITHUB_REPO}/releases/latest"
-_CURRENT_VERSION = "1.3.4"  # Bump this on each release
+_CURRENT_VERSION = "1.0.0"  # Bump this on each release
 
 
 def get_current_version() -> str:

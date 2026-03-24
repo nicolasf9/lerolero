@@ -155,7 +155,7 @@ export async function getPersonality(): Promise<{ greeting: string }> {
 export async function getVersion(): Promise<string> {
   const api = getApi();
   if (api) return api.get_version();
-  return "1.3.4";
+  return "1.0.0";
 }
 
 export async function downloadModel(modelId: string): Promise<{ status: string }> {

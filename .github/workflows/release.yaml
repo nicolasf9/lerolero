@@ -1,4 +1,4 @@
-name: Release EXE
+name: Release
 
 on:
   push:
@@ -6,15 +6,15 @@ on:
   workflow_dispatch:
     inputs:
       version:
-        description: "Version (ex: 1.4.0)"
+        description: "Version (ex: 1.0.0)"
         required: true
 
 permissions:
   contents: write
 
 jobs:
-  build-exe:
-    name: Build Windows EXE
+  build:
+    name: Build Windows Installer
     runs-on: windows-latest
     env:
       VERSION: ${{ inputs.version || github.ref_name }}
@@ -51,28 +51,6 @@ jobs:
         shell: pwsh
         run: |
           $distPath = "dist/LeroLero"
-
-          # Default config
-          @{
-            hotkey = "<f9>"
-            model = "openai/whisper-small"
-            language = $null
-            device = "auto"
-            compute_type = "auto"
-            debug = $false
-            typing_wpm = 40
-            refocus_window = $true
-            auto_stop = $false
-            auto_paste = $true
-            auto_stop_delay = 1.5
-            save_history = $true
-            run_at_startup = $false
-            recording_mode = "hold"
-            show_overlay = $true
-            live_typing = $false
-            theme = "dark"
-          } | ConvertTo-Json | Out-File -FilePath "$distPath/config.json" -Encoding utf8
-
           New-Item -ItemType Directory -Force -Path "$distPath/history" | Out-Null
           New-Item -ItemType Directory -Force -Path "$distPath/models" | Out-Null
 
@@ -81,11 +59,6 @@ jobs:
         run: |
           git tag "${{ env.VERSION }}" || true
           git push origin "${{ env.VERSION }}" || true
-
-      - name: Create ZIP archive
-        shell: pwsh
-        run: |
-          Compress-Archive -Path "dist/LeroLero" -DestinationPath "LeroLero-${{ env.VERSION }}-win64.zip"
 
       - name: Build Inno Setup installer
         run: |
@@ -97,9 +70,7 @@ jobs:
         with:
           tag_name: ${{ env.VERSION }}
           name: "LeroLero ${{ env.VERSION }}"
-          files: |
-            LeroLero-*.zip
-            dist/LeroLero-*-setup.exe
+          files: dist/LeroLero-*-setup.exe
           generate_release_notes: true
           draft: false
           prerelease: false
