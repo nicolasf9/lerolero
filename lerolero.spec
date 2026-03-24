@@ -6,7 +6,7 @@ datas = []
 binaries = []
 hiddenimports = [
     'pynput.keyboard._win32', 'pynput.mouse._win32',
-    'webview', 'clr_loader', 'pythonnet',
+    'webview',
 ]
 
 # Bundle app code + webview + customtkinter (fallback)

@@ -378,4 +378,7 @@ def start_webview_app(controller: WhisperAppController) -> None:
 
     controller.set_status = _enhanced_set_status
 
-    webview.start(func=_on_loaded, debug=False)
+    # Force EdgeChromium (WebView2) on Windows — pythonnet/.NET backend
+    # fails inside frozen PyInstaller builds (Python.Runtime.dll not found)
+    gui_backend = "edgechromium" if sys.platform == "win32" else None
+    webview.start(func=_on_loaded, debug=False, gui=gui_backend)
