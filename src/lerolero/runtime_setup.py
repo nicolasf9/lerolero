@@ -420,6 +420,49 @@ def install_deps(backend: str, progress_callback=None) -> bool:
     return True
 
 
+def download_model(model_id: str, progress_callback=None) -> bool:
+    """Pre-download the configured model so first transcription is instant.
+
+    Supports both Whisper (HuggingFace) and Parakeet (onnx-asr) models.
+    Must be called AFTER install_deps so the ML libraries are importable.
+    """
+    _add_deps_to_path()
+    _log_to_file(f"=== Downloading model: {model_id} ===")
+
+    if progress_callback:
+        progress_callback(f"Baixando modelo {model_id.split('/')[-1]}...", 0)
+
+    is_parakeet = "parakeet" in model_id.lower()
+
+    try:
+        if is_parakeet:
+            # Parakeet downloads via onnx-asr Recognizer constructor
+            import onnx_asr  # noqa: F401
+            if progress_callback:
+                progress_callback("Baixando modelo Parakeet v3...", 30)
+            _log_to_file("Downloading Parakeet model via onnx-asr...")
+            onnx_asr.Recognizer(model=model_id)
+        else:
+            # Whisper models: download via huggingface_hub (no full pipeline load)
+            from huggingface_hub import snapshot_download
+            if progress_callback:
+                progress_callback(f"Baixando modelo {model_id.split('/')[-1]}...", 30)
+            _log_to_file(f"Downloading HuggingFace model: {model_id}")
+            snapshot_download(repo_id=model_id)
+
+        _log_to_file(f"Model {model_id} downloaded successfully")
+        if progress_callback:
+            progress_callback("✅ Modelo baixado!", 100)
+        return True
+
+    except Exception as e:
+        _log_to_file(f"Model download failed: {e}")
+        if progress_callback:
+            progress_callback(f"⚠ Modelo será baixado depois: {e!s:.60s}", -1)
+        # Non-fatal: model will download on first transcription
+        return False
+
+
 def ensure_deps(progress_callback=None) -> str:
     """Detect GPU, install deps if needed, return backend name.
 
