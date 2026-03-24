@@ -138,6 +138,20 @@ def _cache_backend(backend: str) -> None:
         pass
 
 
+def _is_onboarding_done() -> bool:
+    """Check if the user has completed onboarding (model selection)."""
+    try:
+        import json
+        from lerolero.paths import get_config_path
+        cfg_path = get_config_path()
+        if cfg_path.exists():
+            with cfg_path.open() as f:
+                return bool(json.load(f).get("_onboarding_done"))
+    except Exception:
+        pass
+    return False
+
+
 def _show_setup_window() -> bool:
     """Show a setup/progress window while installing ML dependencies.
 
@@ -146,9 +160,14 @@ def _show_setup_window() -> bool:
     """
     from lerolero.runtime_setup import check_deps_installed, detect_gpu_simple, download_model
 
+    onboarding_done = _is_onboarding_done()
+
     # Use cached backend to skip slow GPU detection on subsequent launches
     backend = _get_cached_backend()
     if backend and check_deps_installed(backend):
+        if not onboarding_done:
+            # Onboarding not done yet — let the React UI handle model selection
+            return True
         config_model = _read_config_model()
         return _ensure_model_downloaded(config_model)
 
@@ -158,6 +177,8 @@ def _show_setup_window() -> bool:
     config_model = _read_config_model()
 
     if check_deps_installed(backend):
+        if not onboarding_done:
+            return True
         # Deps installed — check model silently, no tkinter window
         return _ensure_model_downloaded(config_model)
 
@@ -267,9 +288,11 @@ def _show_setup_window() -> bool:
             from lerolero.runtime_setup import install_deps
             success[0] = install_deps(backend, _update_ui)
             if success[0]:
-                root.after(0, lambda: status.config(text="Baixando modelo de IA...", fg="#4FC3F7"))
-                root.after(0, lambda: detail.config(text=f"Modelo: {config_model.split('/')[-1]}"))
-                download_model(config_model, _update_ui)
+                if onboarding_done:
+                    # Only auto-download model if user already picked one in onboarding
+                    root.after(0, lambda: status.config(text="Baixando modelo de IA...", fg="#4FC3F7"))
+                    root.after(0, lambda: detail.config(text=f"Modelo: {config_model.split('/')[-1]}"))
+                    download_model(config_model, _update_ui)
                 root.after(0, lambda: status.config(text="✅ Tudo pronto!", fg="#4CAF50"))
                 root.after(0, lambda: detail.config(text="Iniciando LeroLero..."))
             else:
