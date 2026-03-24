@@ -437,10 +437,11 @@ class WhisperAppController:
                     self.pending_text = text
                     self.last_recording_duration = rec_duration
                     self.log(f"Transcription: {text}")
-                    self._save_to_history(text)
-                    self._save_metric(text, rec_duration, proc_duration)
+                    audio_filename = None
                     if self.config.get("save_audio", False):
-                        self._save_audio(audio_data)
+                        audio_filename = self._save_audio(audio_data)
+                    self._save_to_history(text, audio_file=audio_filename)
+                    self._save_metric(text, rec_duration, proc_duration)
                     if self.on_preview_update:
                         self.on_preview_update(text, None)
                     self.set_status("Text Ready")
@@ -462,7 +463,7 @@ class WhisperAppController:
         finally:
             self.is_processing = False
 
-    def _save_to_history(self, text: str) -> None:
+    def _save_to_history(self, text: str, audio_file: str | None = None) -> None:
         if not self.config.get("save_history", True):
             return
         try:
@@ -476,23 +477,28 @@ class WhisperAppController:
                 "duration": round(self.last_recording_duration, 1),
                 "words": words,
             }
+            if audio_file:
+                entry["audio_file"] = audio_file
             with history_file.open("a", encoding="utf-8") as f:
                 f.write(json.dumps(entry, ensure_ascii=False) + "\n")
         except Exception as e:
             self.log(f"Error saving history: {e}")
 
-    def _save_audio(self, audio_data: "np.ndarray") -> None:
-        """Save audio as .wav file alongside the transcript."""
+    def _save_audio(self, audio_data: "np.ndarray") -> str | None:
+        """Save audio as .wav file alongside the transcript. Returns filename."""
         try:
             import scipy.io.wavfile as wavfile
             audio_dir = get_history_dir() / "audio"
             audio_dir.mkdir(exist_ok=True)
             ts = datetime.now(UTC).strftime("%Y%m%d_%H%M%S")
-            filepath = audio_dir / f"{ts}.wav"
+            filename = f"{ts}.wav"
+            filepath = audio_dir / filename
             wavfile.write(str(filepath), 16000, audio_data)
-            self.log(f"Audio saved: {filepath.name}")
+            self.log(f"Audio saved: {filename}")
+            return filename
         except Exception as e:
             self.log(f"Audio save error: {e}")
+            return None
 
     def _save_metric(self, text: str, rec_duration: float, proc_duration: float) -> None:
         words = len(text.split()) if text else 0

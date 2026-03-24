@@ -1,5 +1,6 @@
-import { useState, useRef, useMemo } from "react";
-import { Monitor, Copy, Check } from "lucide-react";
+import { useState, useRef, useCallback } from "react";
+import { Monitor, Copy, Check, Play, Pause, Volume2 } from "lucide-react";
+import { callApi } from "@/lib/api";
 
 interface ChatBubbleProps {
   text: string;
@@ -9,6 +10,7 @@ interface ChatBubbleProps {
   windowTitle: string;
   isLive?: boolean;
   searchQuery?: string;
+  audioFile?: string;
 }
 
 /** Highlight matching text segments */
@@ -42,7 +44,100 @@ function HighlightText({ text, query }: { text: string; query: string }) {
   );
 }
 
-export function ChatBubble({ text, timestamp, duration, words, windowTitle, isLive, searchQuery }: ChatBubbleProps) {
+/** Mini audio player for recorded audio */
+function AudioPlayer({ audioFile }: { audioFile: string }) {
+  const [playing, setPlaying] = useState(false);
+  const [loading, setLoading] = useState(false);
+  const [progress, setProgress] = useState(0);
+  const audioRef = useRef<HTMLAudioElement | null>(null);
+
+  const handlePlay = useCallback(async () => {
+    if (playing && audioRef.current) {
+      audioRef.current.pause();
+      setPlaying(false);
+      return;
+    }
+
+    if (!audioRef.current) {
+      setLoading(true);
+      try {
+        const dataUri = await callApi("get_audio_base64", audioFile) as string;
+        if (!dataUri) {
+          setLoading(false);
+          return;
+        }
+        const audio = new Audio(dataUri);
+        audio.ontimeupdate = () => {
+          if (audio.duration > 0) {
+            setProgress((audio.currentTime / audio.duration) * 100);
+          }
+        };
+        audio.onended = () => {
+          setPlaying(false);
+          setProgress(0);
+        };
+        audioRef.current = audio;
+      } catch {
+        setLoading(false);
+        return;
+      }
+      setLoading(false);
+    }
+
+    audioRef.current.currentTime = 0;
+    audioRef.current.play();
+    setPlaying(true);
+  }, [audioFile, playing]);
+
+  return (
+    <button
+      onClick={handlePlay}
+      style={{
+        display: "inline-flex",
+        alignItems: "center",
+        gap: 4,
+        padding: "3px 10px",
+        borderRadius: 8,
+        border: "1px solid var(--border)",
+        background: playing ? "var(--accent)" : "var(--surface3)",
+        cursor: "pointer",
+        color: playing ? "#fff" : "var(--text-tertiary)",
+        fontSize: 11,
+        transition: "all 0.2s",
+        position: "relative",
+        overflow: "hidden",
+        minWidth: 70,
+      }}
+    >
+      {/* Progress bar background */}
+      {playing && (
+        <div
+          style={{
+            position: "absolute",
+            left: 0,
+            top: 0,
+            bottom: 0,
+            width: `${progress}%`,
+            background: "rgba(255,255,255,0.15)",
+            transition: "width 0.1s linear",
+          }}
+        />
+      )}
+      <span style={{ position: "relative", zIndex: 1, display: "flex", alignItems: "center", gap: 4 }}>
+        {loading ? (
+          <Volume2 size={12} style={{ animation: "pulse 1s infinite" }} />
+        ) : playing ? (
+          <Pause size={12} />
+        ) : (
+          <Play size={12} />
+        )}
+        {playing ? "Pausar" : "Ouvir"}
+      </span>
+    </button>
+  );
+}
+
+export function ChatBubble({ text, timestamp, duration, words, windowTitle, isLive, searchQuery, audioFile }: ChatBubbleProps) {
   const [copied, setCopied] = useState(false);
   const [mousePos, setMousePos] = useState({ x: 0, y: 0 });
   const [isHovered, setIsHovered] = useState(false);
@@ -149,6 +244,10 @@ export function ChatBubble({ text, timestamp, duration, words, windowTitle, isLi
               <Monitor size={11} strokeWidth={1.5} /> {shortWin}
             </span>
           )}
+
+          {/* Audio player */}
+          {audioFile && <AudioPlayer audioFile={audioFile} />}
+
           <span style={{ flex: 1 }} />
           <button
             onClick={handleCopy}

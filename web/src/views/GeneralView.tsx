@@ -159,6 +159,7 @@ export function GeneralView({ status }: { status: AppStatus }) {
             words={entry.words}
             windowTitle={entry.window}
             searchQuery={query}
+            audioFile={entry.audio_file}
           />
         ))}
 

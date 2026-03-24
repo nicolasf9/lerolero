@@ -122,23 +122,56 @@ class WindowsPlatform:
 
             if not enable:
                 shortcut_path.unlink(missing_ok=True)
+                logger.info("Startup shortcut removed")
                 return
 
-            target = app_path or Path(sys.executable)
+            # Determine what to launch
+            if getattr(sys, "frozen", False):
+                # Running as .exe — point shortcut at the exe
+                target = Path(sys.executable)
+                work_dir = target.parent
+                args = ""
+            else:
+                # Running via Python — create a .bat wrapper or use pythonw
+                # Find the project's run.bat
+                project_root = Path(__file__).resolve().parent.parent.parent.parent
+                # Use run_silent.bat (no pause, minimized) for startup
+                run_bat = project_root / "run_silent.bat"
+                if not run_bat.exists():
+                    run_bat.write_text(
+                        '@echo off\n'
+                        f'cd /d "{project_root}"\n'
+                        'start /min "" uv run lerolero\n',
+                        encoding="utf-8",
+                    )
+                target = run_bat
+                work_dir = project_root
+                args = ""
+
             sys_root = os.environ.get("SystemRoot", r"C:\WINDOWS")
             ps = Path(sys_root) / "System32" / "WindowsPowerShell" / "v1.0" / "powershell.exe"
 
+            # Escape paths for PowerShell
+            lnk = str(shortcut_path).replace("'", "''")
+            tgt = str(target).replace("'", "''")
+            wd = str(work_dir).replace("'", "''")
+
             script = (
-                f'$s=(New-Object -COM WScript.Shell).CreateShortcut("{shortcut_path}");'
-                f'$s.TargetPath="{target}";'
-                f'$s.WorkingDirectory="{target.parent}";'
+                f"$s=(New-Object -COM WScript.Shell).CreateShortcut('{lnk}');"
+                f"$s.TargetPath='{tgt}';"
+                f"$s.WorkingDirectory='{wd}';"
+                f"$s.WindowStyle=7;"  # Minimized
                 f"$s.Save()"
             )
-            subprocess.run(
+            result = subprocess.run(
                 [str(ps), "-Command", script],
-                capture_output=True, timeout=10,
+                capture_output=True, text=True, timeout=10,
                 creationflags=subprocess.CREATE_NO_WINDOW,
             )
+            if result.returncode == 0:
+                logger.info("Startup shortcut created: %s -> %s", shortcut_path, target)
+            else:
+                logger.error("PowerShell error: %s", result.stderr)
         except Exception as e:
             logger.error("Failed to update startup shortcut: %s", e)
 

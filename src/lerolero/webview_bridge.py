@@ -196,9 +196,25 @@ class WebViewAPI:
                 "window": win,
                 "duration": dur,
                 "words": words,
+                "audio_file": e.get("audio_file", ""),
             })
 
         return result[-100:]  # Last 100
+
+    def get_audio_base64(self, filename: str) -> str:
+        """Return audio file as base64-encoded data URI for playback in browser."""
+        import base64
+        if not filename:
+            return ""
+        audio_path = get_history_dir() / "audio" / filename
+        if not audio_path.exists():
+            return ""
+        try:
+            data = audio_path.read_bytes()
+            b64 = base64.b64encode(data).decode("ascii")
+            return f"data:audio/wav;base64,{b64}"
+        except Exception:
+            return ""
 
     def get_unique_apps(self) -> list[str]:
         hist_file = get_history_dir() / "transcripts.jsonl"

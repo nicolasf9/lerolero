@@ -27,6 +27,7 @@ export interface HistoryEntry {
   window: string;
   duration: number;
   words: number;
+  audio_file?: string;
 }
 
 export interface Metrics {
@@ -54,6 +55,16 @@ export interface AppStatus {
 
 function getApi(): PyWebViewAPI | null {
   return window.pywebview?.api ?? null;
+}
+
+/** Generic API call — for methods not individually wrapped */
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+export async function callApi(method: string, ...args: unknown[]): Promise<any> {
+  const api = getApi() as any;
+  if (api && typeof api[method] === "function") {
+    return api[method](...args);
+  }
+  return null;
 }
 
 // Async wrappers with fallbacks for development
