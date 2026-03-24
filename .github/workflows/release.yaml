@@ -1,0 +1,84 @@
+name: Release EXE
+
+on:
+  push:
+    tags: ["v*"]
+
+permissions:
+  contents: write
+
+jobs:
+  build-exe:
+    name: Build Windows EXE
+    runs-on: windows-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.13"
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+
+      - name: Build React frontend
+        working-directory: web
+        run: |
+          npm ci
+          npm run build
+
+      - name: Install Python dependencies
+        run: |
+          pip install uv
+          uv sync --locked
+          uv pip install pyinstaller
+
+      - name: Build EXE with PyInstaller
+        run: uv run pyinstaller lerolero.spec --noconfirm
+
+      - name: Prepare distribution
+        shell: pwsh
+        run: |
+          $distPath = "dist/LeroLero"
+
+          # Default config
+          @{
+            hotkey = "<f9>"
+            model = "openai/whisper-small"
+            language = $null
+            device = "auto"
+            compute_type = "auto"
+            debug = $false
+            typing_wpm = 40
+            refocus_window = $true
+            auto_stop = $false
+            auto_paste = $true
+            auto_stop_delay = 1.5
+            save_history = $true
+            run_at_startup = $false
+            recording_mode = "hold"
+            show_overlay = $true
+            live_typing = $false
+            theme = "dark"
+          } | ConvertTo-Json | Out-File -FilePath "$distPath/config.json" -Encoding utf8
+
+          New-Item -ItemType Directory -Force -Path "$distPath/history" | Out-Null
+          New-Item -ItemType Directory -Force -Path "$distPath/models" | Out-Null
+
+      - name: Create ZIP archive
+        shell: pwsh
+        run: |
+          $tag = "${{ github.ref_name }}"
+          Compress-Archive -Path "dist/LeroLero" -DestinationPath "LeroLero-${tag}-win64.zip"
+
+      - name: Create GitHub Release
+        uses: softprops/action-gh-release@v2
+        with:
+          files: LeroLero-*.zip
+          generate_release_notes: true
+          draft: false
+          prerelease: false
