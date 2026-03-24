@@ -11,17 +11,8 @@ import threading
 from dataclasses import asdict
 from typing import Any
 
-# Help pythonnet find the Python DLL inside PyInstaller frozen builds.
-# Without this, Python.Runtime.dll fails to resolve Python.Runtime.Loader.Initialize.
-# Must be set BEFORE importing webview (which triggers pythonnet import).
-if sys.platform == "win32" and getattr(sys, "frozen", False):
-    _pydll = os.path.join(
-        sys._MEIPASS,  # noqa: SLF001
-        f"python{sys.version_info.major}{sys.version_info.minor}.dll",
-    )
-    if os.path.exists(_pydll):
-        os.environ["PYTHONNET_PYDLL"] = _pydll
-
+# pythonnet env vars (PYTHONNET_PYDLL, PYTHONNET_RUNTIME) are configured
+# by the PyInstaller runtime hook (rthook_pythonnet.py) before this module loads.
 import webview
 
 
