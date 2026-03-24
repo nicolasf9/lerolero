@@ -28,6 +28,8 @@ datas += [('src/lerolero/assets/icon.ico', 'lerolero/assets')]
 datas += [('src/lerolero/assets/icon.png', 'lerolero/assets')]
 
 # Exclude ALL heavy ML deps — installed at runtime
+# Also exclude pythonnet/.NET — pywebview uses EdgeChromium (WebView2) on Windows,
+# pythonnet's Python.Runtime.dll fails inside frozen PyInstaller builds
 EXCLUDE_HEAVY = [
     'torch', 'torchvision', 'torchaudio', 'torch._C', 'torch.cuda',
     'caffe2', 'functorch',
@@ -36,6 +38,7 @@ EXCLUDE_HEAVY = [
     'huggingface_hub', 'accelerate',
     'onnxruntime', 'onnx',
     'scipy', 'scipy.special',
+    'pythonnet', 'clr', 'clr_loader', 'Python.Runtime',
 ]
 
 a = Analysis(

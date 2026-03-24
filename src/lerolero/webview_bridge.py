@@ -11,6 +11,12 @@ import threading
 from dataclasses import asdict
 from typing import Any
 
+# Force pywebview to skip pythonnet/.NET backend — it crashes in frozen builds
+# because Python.Runtime.dll can't resolve inside PyInstaller bundles.
+# Must be set BEFORE importing webview.
+if sys.platform == "win32":
+    os.environ["PYWEBVIEW_GUI"] = "edgechromium"
+
 import webview
 
 
