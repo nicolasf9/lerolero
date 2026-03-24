@@ -269,6 +269,64 @@ class WebViewAPI:
         from lerolero.updater import get_current_version
         return get_current_version()
 
+    # ── Model Download ──────────────────────────────────────────────
+
+    def download_model(self, model_id: str) -> dict:
+        """Download a model in background, pushing progress events."""
+        def _do_download() -> None:
+            def progress_cb(msg: str, pct: int) -> None:
+                self._push_event("model_download_progress", {
+                    "message": msg, "percent": pct, "model": model_id,
+                })
+
+            try:
+                from lerolero.runtime_setup import download_model, _add_deps_to_path
+                _add_deps_to_path()
+                progress_cb("Baixando modelo...", 5)
+                success = download_model(model_id, progress_cb)
+                if success:
+                    self._push_event("model_download_done", {
+                        "model": model_id, "success": True,
+                    })
+                else:
+                    self._push_event("model_download_done", {
+                        "model": model_id, "success": False,
+                        "error": "Download falhou",
+                    })
+            except Exception as e:
+                self._push_event("model_download_done", {
+                    "model": model_id, "success": False, "error": str(e),
+                })
+
+        import threading
+        threading.Thread(target=_do_download, daemon=True).start()
+        return {"status": "started"}
+
+    def is_onboarding_done(self) -> bool:
+        """Check if onboarding has been completed."""
+        return bool(self.controller.config.get("_onboarding_done", False))
+
+    def complete_onboarding(self, config: dict) -> None:
+        """Mark onboarding as complete and apply initial settings."""
+        config["_onboarding_done"] = True
+        self.controller.update_config(config)
+
+    def reinitialize(self) -> dict:
+        """Re-initialize components (after model download)."""
+        def _do_init() -> None:
+            success = self.controller.initialize_components()
+            if success:
+                self.controller.start_listener()
+                self._push_event("status_change", self.get_status())
+                self._push_event("loading_done", True)
+            else:
+                self._push_event("status_change", {"status": "Error"})
+                self._push_event("loading_done", True)
+
+        import threading
+        threading.Thread(target=_do_init, daemon=True).start()
+        return {"status": "started"}
+
     # ── Status ───────────────────────────────────────────────────────
 
     def get_status(self) -> dict:
@@ -358,6 +416,13 @@ def start_webview_app(controller: WhisperAppController) -> None:
         if n > 0:
             api._push_event("log", {"message": f"Migrated {n} legacy transcripts."})
 
+        # Skip auto-init if onboarding not done yet (frontend handles it)
+        if not controller.config.get("_onboarding_done", False):
+            api._push_event("loading_done", True)
+            # Still setup tray so user can exit
+            controller.setup_tray(on_open=lambda: window.show())
+            return
+
         success = controller.initialize_components()
         if success:
             controller.start_listener()
@@ -367,6 +432,7 @@ def start_webview_app(controller: WhisperAppController) -> None:
         else:
             api._push_event("status_change", {"status": "Error"})
             api._push_event("loading_done", True)
+            controller.setup_tray(on_open=lambda: window.show())
 
     def _on_loaded() -> None:
         # Apply icon to window title bar + taskbar

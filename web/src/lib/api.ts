@@ -20,6 +20,10 @@ interface PyWebViewAPI {
   toggle_pause(): Promise<void>;
   get_personality(): Promise<{ greeting: string }>;
   get_version(): Promise<string>;
+  download_model(model_id: string): Promise<{ status: string }>;
+  is_onboarding_done(): Promise<boolean>;
+  complete_onboarding(config: Record<string, unknown>): Promise<void>;
+  reinitialize(): Promise<{ status: string }>;
 }
 
 export interface HistoryEntry {
@@ -152,6 +156,29 @@ export async function getVersion(): Promise<string> {
   const api = getApi();
   if (api) return api.get_version();
   return "1.3.4";
+}
+
+export async function downloadModel(modelId: string): Promise<{ status: string }> {
+  const api = getApi();
+  if (api) return api.download_model(modelId);
+  return { status: "mock" };
+}
+
+export async function isOnboardingDone(): Promise<boolean> {
+  const api = getApi();
+  if (api) return api.is_onboarding_done();
+  return true;
+}
+
+export async function completeOnboarding(config: Record<string, unknown>): Promise<void> {
+  const api = getApi();
+  if (api) await api.complete_onboarding(config);
+}
+
+export async function reinitialize(): Promise<{ status: string }> {
+  const api = getApi();
+  if (api) return api.reinitialize();
+  return { status: "mock" };
 }
 
 // Event listener system — Python pushes events via evaluate_js

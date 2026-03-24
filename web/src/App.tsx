@@ -5,10 +5,11 @@ import { GeneralView } from "./views/GeneralView";
 import { MetricsView } from "./views/MetricsView";
 import { SettingsView } from "./views/SettingsView";
 import { AboutView } from "./views/AboutView";
+import { OnboardingView } from "./views/OnboardingView";
 import { Preloader } from "./components/ui/preloader";
 import { StatusPill } from "./components/StatusPill";
 import { Moon, Sun } from "lucide-react";
-import { on, getStatus, getConfig, saveConfig, type AppStatus } from "./lib/api";
+import { on, getStatus, getConfig, saveConfig, isOnboardingDone, type AppStatus } from "./lib/api";
 import { applyAccentColor } from "./views/SettingsView";
 
 type Tab = "general" | "metrics" | "settings" | "about";
@@ -16,12 +17,13 @@ type Tab = "general" | "metrics" | "settings" | "about";
 export default function App() {
   const [activeTab, setActiveTab] = useState<Tab>("general");
   const [loading, setLoading] = useState(!!window.pywebview);
+  const [showOnboarding, setShowOnboarding] = useState(false);
+  const [onboardingChecked, setOnboardingChecked] = useState(false);
   const [status, setStatus] = useState<AppStatus>({
     status: "Loading", is_recording: false, is_processing: false,
     pending_text: null, model: "...", backend: "detecting...", hotkey: "...",
   });
   const [isDark, setIsDark] = useState(() => {
-    // Start with system preference, config will override once loaded
     return window.matchMedia?.("(prefers-color-scheme: dark)").matches ?? true;
   });
 
@@ -31,12 +33,18 @@ export default function App() {
 
   useEffect(() => {
     getConfig().then((c) => {
-      // Load saved theme from config, or follow system preference
       if (c.theme === "dark" || c.theme === "light") {
         setIsDark(c.theme === "dark");
       }
       const accent = c.accent_color as string | undefined;
       if (accent) applyAccentColor(accent);
+    });
+    // Check onboarding status
+    isOnboardingDone().then((done) => {
+      setShowOnboarding(!done);
+      setOnboardingChecked(true);
+      if (done) setLoading(!!window.pywebview);
+      else setLoading(false); // Don't show preloader during onboarding
     });
   }, []);
 
@@ -62,6 +70,12 @@ export default function App() {
       return next;
     });
   }, []);
+
+  if (!onboardingChecked) return null; // Wait for onboarding check
+
+  if (showOnboarding) {
+    return <OnboardingView onComplete={() => { setShowOnboarding(false); setLoading(true); }} />;
+  }
 
   return (
     <div className="flex h-full w-full overflow-hidden noise-bg" style={{ background: "var(--bg)" }}>
