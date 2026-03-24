@@ -37,7 +37,7 @@ if TYPE_CHECKING:
 
 DEFAULT_CONFIG: dict[str, Any] = {
     "hotkey": "<f8>",
-    "model": "openai/whisper-base",
+    "model": None,
     "language": None,
     "microphone_name": None,
     "device": "cpu",
@@ -198,6 +198,12 @@ class WhisperAppController:
         self.current_mic_index = mic_index
 
         try:
+            # No model selected yet — skip transcriber init (onboarding will set it)
+            if not self.config.get("model"):
+                self.log("No model configured — waiting for model selection.")
+                self.recorder = AudioRecorder(device_index=self.current_mic_index)
+                return True
+
             if (
                 not self.transcriber
                 or self.current_model_id != self.config["model"]

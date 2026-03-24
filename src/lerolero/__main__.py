@@ -92,19 +92,18 @@ def _ensure_model_downloaded(model_id: str) -> bool:
     return True
 
 
-def _read_config_model() -> str:
-    """Read the configured model from config.json."""
-    config_model = "openai/whisper-base"
+def _read_config_model() -> str | None:
+    """Read the configured model from config.json. Returns None if not set."""
     try:
         import json
         from lerolero.paths import get_config_path
         cfg_path = get_config_path()
         if cfg_path.exists():
             with cfg_path.open() as f:
-                config_model = json.load(f).get("model", config_model)
+                return json.load(f).get("model")
     except Exception:
         pass
-    return config_model
+    return None
 
 
 def _get_cached_backend() -> str | None:
@@ -169,7 +168,9 @@ def _show_setup_window() -> bool:
             # Onboarding not done yet — let the React UI handle model selection
             return True
         config_model = _read_config_model()
-        return _ensure_model_downloaded(config_model)
+        if config_model:
+            return _ensure_model_downloaded(config_model)
+        return True  # No model set — onboarding will handle it
 
     # First run or cache miss — detect GPU (slow, runs wmic)
     backend = detect_gpu_simple()
@@ -177,7 +178,7 @@ def _show_setup_window() -> bool:
     config_model = _read_config_model()
 
     if check_deps_installed(backend):
-        if not onboarding_done:
+        if not onboarding_done or not config_model:
             return True
         # Deps installed — check model silently, no tkinter window
         return _ensure_model_downloaded(config_model)
@@ -288,7 +289,7 @@ def _show_setup_window() -> bool:
             from lerolero.runtime_setup import install_deps
             success[0] = install_deps(backend, _update_ui)
             if success[0]:
-                if onboarding_done:
+                if onboarding_done and config_model:
                     # Only auto-download model if user already picked one in onboarding
                     root.after(0, lambda: status.config(text="Baixando modelo de IA...", fg="#4FC3F7"))
                     root.after(0, lambda: detail.config(text=f"Modelo: {config_model.split('/')[-1]}"))

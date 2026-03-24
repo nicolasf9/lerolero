@@ -339,7 +339,7 @@ class WebViewAPI:
             "is_recording": bool(self.controller.recorder and self.controller.recorder.recording),
             "is_processing": self.controller.is_processing,
             "pending_text": self.controller.pending_text,
-            "model": cfg.get("model", "openai/whisper-base"),
+            "model": cfg.get("model") or "none",
             "backend": backend,
             "hotkey": cfg.get("hotkey", "<f9>"),
         }
