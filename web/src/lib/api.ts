@@ -76,7 +76,7 @@ export async function callApi(method: string, ...args: unknown[]): Promise<any> 
 export async function getConfig(): Promise<Record<string, unknown>> {
   const api = getApi();
   if (api) return api.get_config();
-  return { theme: "dark", hotkey: "<f9>", model: "openai/whisper-small" };
+  return { theme: "dark", hotkey: "<f9>", model: null };
 }
 
 export async function saveConfig(config: Record<string, unknown>): Promise<void> {
@@ -138,7 +138,7 @@ export async function getUniqueApps(): Promise<string[]> {
 export async function getStatus(): Promise<AppStatus> {
   const api = getApi();
   if (api) return api.get_status();
-  return { status: "Ready", is_recording: false, is_processing: false, pending_text: null, model: "whisper-base", backend: "openvino", hotkey: "<f9>" };
+  return { status: "Ready", is_recording: false, is_processing: false, pending_text: null, model: "none", backend: "detecting...", hotkey: "<f9>" };
 }
 
 export async function togglePause(): Promise<void> {

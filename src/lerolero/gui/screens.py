@@ -106,7 +106,7 @@ class ConfigurationWindow(ctk.CTkToplevel):
         ctk.CTkLabel(form, text="Whisper Model", **_lbl).grid(row=row, column=0, padx=12, pady=8, sticky="w")
         self.cb_model = ctk.CTkComboBox(form, values=[m[1] for m in WHISPER_MODELS], **_cmb)
         self.cb_model.grid(row=row, column=1, padx=12, pady=8, sticky="ew")
-        self.cb_model.set(cfg.get("model", "openai/whisper-base"))
+        self.cb_model.set(cfg.get("model") or "")
         row += 1
 
         ctk.CTkLabel(form, text="Language", **_lbl).grid(row=row, column=0, padx=12, pady=8, sticky="w")

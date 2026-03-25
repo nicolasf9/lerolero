@@ -323,12 +323,15 @@ class WebViewAPI:
         cfg = self.controller.config
         return bool(cfg.get("_onboarding_done", False)) and bool(cfg.get("model"))
 
-    def complete_onboarding(self, config: dict) -> None:
+    def complete_onboarding(self, config: dict) -> dict:
         """Mark onboarding as complete and apply initial settings."""
+        if not config.get("model"):
+            return {"error": "Nenhum modelo selecionado"}
         from lerolero.updater import get_current_version
         config["_onboarding_done"] = True
         config["_app_version"] = get_current_version()
         self.controller.update_config(config)
+        return {"ok": True}
 
     def reinitialize(self) -> dict:
         """Re-initialize components (after model download)."""

@@ -170,7 +170,7 @@ class Transcriber:
 
     def __init__(
         self,
-        model_id: str = "openai/whisper-base",
+        model_id: str,
         language: str | None = None,
         device: str = "auto",
         compute_type: str = "auto",

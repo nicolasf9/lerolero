@@ -236,7 +236,7 @@ class WhisperAppGUI(ctk.CTk):
             text_color=p.text,
         ).pack(pady=(0, 6))
 
-        model = self.controller.config.get("model", "whisper-base").split("/")[-1]
+        model = (self.controller.config.get("model") or "no model").split("/")[-1]
         ctk.CTkLabel(
             pre_inner, text=f"{model}  \u00b7  detecting GPU...",
             font=ctk.CTkFont(family=_M, size=11),
@@ -628,7 +628,7 @@ class WhisperAppGUI(ctk.CTk):
         ctk.CTkLabel(form, text="Whisper Model", **_lbl).grid(row=row, column=0, padx=12, pady=6, sticky="w")
         self._s_model = ctk.CTkComboBox(form, values=[m[1] for m in WHISPER_MODELS], **_cmb)
         self._s_model.grid(row=row, column=1, padx=12, pady=6, sticky="ew")
-        self._s_model.set(cfg.get("model", "openai/whisper-base"))
+        self._s_model.set(cfg.get("model") or "")
         row += 1
 
         ctk.CTkLabel(form, text="Language", **_lbl).grid(row=row, column=0, padx=12, pady=6, sticky="w")
