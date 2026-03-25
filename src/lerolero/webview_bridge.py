@@ -325,7 +325,9 @@ class WebViewAPI:
 
     def complete_onboarding(self, config: dict) -> None:
         """Mark onboarding as complete and apply initial settings."""
+        from lerolero.updater import get_current_version
         config["_onboarding_done"] = True
+        config["_app_version"] = get_current_version()
         self.controller.update_config(config)
 
     def reinitialize(self) -> dict:

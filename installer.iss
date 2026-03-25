@@ -38,6 +38,7 @@ Name: "english"; MessagesFile: "compiler:Default.isl"
 [Tasks]
 Name: "desktopicon"; Description: "Criar atalho na &Área de Trabalho"; GroupDescription: "Atalhos:"; Flags: unchecked
 Name: "startup"; Description: "Iniciar {#MyAppName} com o &Windows"; GroupDescription: "Opções:"
+Name: "cleandata"; Description: "Limpar dados anteriores (configurações, modelos, histórico)"; GroupDescription: "Reinstalação limpa:"; Flags: unchecked
 
 [Files]
 Source: "dist\LeroLero\*"; DestDir: "{app}"; Flags: ignoreversion recursesubdirs createallsubdirs
@@ -50,6 +51,19 @@ Name: "{autodesktop}\{#MyAppName}"; Filename: "{app}\{#MyAppExeName}"; Tasks: de
 [Registry]
 ; Windows startup entry (only if task selected)
 Root: HKCU; Subkey: "Software\Microsoft\Windows\CurrentVersion\Run"; ValueType: string; ValueName: "LeroLero"; ValueData: """{app}\{#MyAppExeName}"""; Flags: uninsdeletevalue; Tasks: startup
+
+[InstallDelete]
+; Clean AppData if user selected "cleandata" task
+Type: filesandordirs; Name: "{userappdata}\LeroLero\config.json"; Tasks: cleandata
+Type: filesandordirs; Name: "{userappdata}\LeroLero\deps"; Tasks: cleandata
+Type: filesandordirs; Name: "{userappdata}\LeroLero\python"; Tasks: cleandata
+Type: filesandordirs; Name: "{userappdata}\LeroLero\history"; Tasks: cleandata
+Type: filesandordirs; Name: "{userappdata}\LeroLero\lerolero.log"; Tasks: cleandata
+Type: filesandordirs; Name: "{userappdata}\LeroLero\setup_log.txt"; Tasks: cleandata
+
+[UninstallDelete]
+; Always clean AppData on uninstall
+Type: filesandordirs; Name: "{userappdata}\LeroLero"
 
 [Run]
 Filename: "{app}\{#MyAppExeName}"; Description: "Abrir {#MyAppName}"; Flags: nowait postinstall skipifsilent

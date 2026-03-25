@@ -145,7 +145,9 @@ def _is_onboarding_done() -> bool:
         cfg_path = get_config_path()
         if cfg_path.exists():
             with cfg_path.open() as f:
-                return bool(json.load(f).get("_onboarding_done"))
+                cfg = json.load(f)
+                # Must have both the flag AND a model selected
+                return bool(cfg.get("_onboarding_done")) and bool(cfg.get("model"))
     except Exception:
         pass
     return False
@@ -313,6 +315,34 @@ def _show_setup_window() -> bool:
     return success[0]
 
 
+def _reset_onboarding_if_version_changed() -> None:
+    """Reset onboarding flag if app version changed (e.g. upgrade to 1.0).
+
+    This ensures users re-do onboarding after a major version change,
+    picking a fresh model instead of inheriting an old config.
+    """
+    try:
+        import json
+        from lerolero.paths import get_config_path
+        from lerolero.updater import get_current_version
+        cfg_path = get_config_path()
+        if not cfg_path.exists():
+            return
+        with cfg_path.open() as f:
+            cfg = json.load(f)
+        saved_version = cfg.get("_app_version")
+        current_version = get_current_version()
+        if saved_version != current_version:
+            # Version changed — reset onboarding so user re-picks model
+            cfg.pop("_onboarding_done", None)
+            cfg.pop("model", None)
+            cfg["_app_version"] = current_version
+            with cfg_path.open("w") as f:
+                json.dump(cfg, f, indent=4)
+    except Exception:
+        pass
+
+
 def main() -> None:
     """Run the LeroLero application."""
     try:
@@ -320,6 +350,9 @@ def main() -> None:
 
         # Migrate legacy data from cwd to AppData on first run
         migrate_legacy_data()
+
+        # Reset onboarding if version changed (upgrade scenario)
+        _reset_onboarding_if_version_changed()
 
         logging.basicConfig(
             filename=str(get_log_path()),
