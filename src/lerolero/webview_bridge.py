@@ -111,7 +111,23 @@ class WebViewAPI:
         return dict(self.controller.config)
 
     def save_config(self, config: dict) -> None:
+        old_model = self.controller.config.get("model")
+        old_device = self.controller.config.get("device")
+        old_lang = self.controller.config.get("language")
         self.controller.update_config(config)
+        # Reinitialize transcriber if model/device/language changed
+        new_model = self.controller.config.get("model")
+        new_device = self.controller.config.get("device")
+        new_lang = self.controller.config.get("language")
+        if new_model and (new_model != old_model or new_device != old_device or new_lang != old_lang):
+            self._push_event("status_change", {"status": "Loading"})
+            def _reinit():
+                success = self.controller.initialize_components()
+                if success:
+                    self.controller.start_listener()
+                self._push_event("status_change", self.get_status())
+                self._push_event("loading_done", True)
+            threading.Thread(target=_reinit, daemon=True).start()
 
     def get_models(self) -> list[dict]:
         return [{"label": m[0], "value": m[1]} for m in WHISPER_MODELS]
@@ -303,8 +319,9 @@ class WebViewAPI:
         return {"status": "started"}
 
     def is_onboarding_done(self) -> bool:
-        """Check if onboarding has been completed."""
-        return bool(self.controller.config.get("_onboarding_done", False))
+        """Check if onboarding has been completed AND a model is set."""
+        cfg = self.controller.config
+        return bool(cfg.get("_onboarding_done", False)) and bool(cfg.get("model"))
 
     def complete_onboarding(self, config: dict) -> None:
         """Mark onboarding as complete and apply initial settings."""
@@ -416,8 +433,8 @@ def start_webview_app(controller: WhisperAppController) -> None:
         if n > 0:
             api._push_event("log", {"message": f"Migrated {n} legacy transcripts."})
 
-        # Skip auto-init if onboarding not done yet (frontend handles it)
-        if not controller.config.get("_onboarding_done", False):
+        # Skip auto-init if onboarding not done or no model selected
+        if not controller.config.get("_onboarding_done", False) or not controller.config.get("model"):
             api._push_event("loading_done", True)
             # Still setup tray so user can exit
             controller.setup_tray(on_open=lambda: window.show())
