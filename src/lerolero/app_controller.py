@@ -436,10 +436,13 @@ class WhisperAppController:
     def _finish_transcription(self, audio_data: "np.ndarray") -> None:
         proc_start = time.time()
         try:
-            if self.transcriber:
+            # Grab a local reference to avoid race condition if model is
+            # changed mid-transcription (reinitialize sets self.transcriber to a new instance)
+            transcriber = self.transcriber
+            if transcriber:
                 ctx_prompt = get_prompt_for_process(self.last_target_process)
                 task = self.config.get("whisper_task", "transcribe")
-                text = self.transcriber.transcribe(audio_data, initial_prompt=ctx_prompt, task=task)
+                text = transcriber.transcribe(audio_data, initial_prompt=ctx_prompt, task=task)
                 if text and self.config.get("clean_transcription", True):
                     text = clean_transcript(text)
                 proc_duration = time.time() - proc_start

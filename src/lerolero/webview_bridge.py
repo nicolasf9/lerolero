@@ -438,23 +438,21 @@ def start_webview_app(controller: WhisperAppController) -> None:
         if n > 0:
             api._push_event("log", {"message": f"Migrated {n} legacy transcripts."})
 
+        # Always setup tray first so user can exit
+        controller.setup_tray(on_open=lambda: window.show())
+
         # Skip auto-init if onboarding not done or no model selected
         if not controller.config.get("_onboarding_done", False) or not controller.config.get("model"):
             api._push_event("loading_done", True)
-            # Still setup tray so user can exit
-            controller.setup_tray(on_open=lambda: window.show())
             return
 
         success = controller.initialize_components()
         if success:
             controller.start_listener()
-            controller.setup_tray(on_open=lambda: window.show())
             api._push_event("status_change", api.get_status())
-            api._push_event("loading_done", True)
         else:
             api._push_event("status_change", {"status": "Error"})
-            api._push_event("loading_done", True)
-            controller.setup_tray(on_open=lambda: window.show())
+        api._push_event("loading_done", True)
 
     def _on_loaded() -> None:
         # Apply icon to window title bar + taskbar
