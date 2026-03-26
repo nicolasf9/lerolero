@@ -39,13 +39,21 @@ export default function App() {
       const accent = c.accent_color as string | undefined;
       if (accent) applyAccentColor(accent);
     });
-    // Check onboarding status
-    isOnboardingDone().then((done) => {
-      setShowOnboarding(!done);
-      setOnboardingChecked(true);
-      if (done) setLoading(!!window.pywebview);
-      else setLoading(false); // Don't show preloader during onboarding
-    });
+    // Check onboarding status — use .catch so a failed API call
+    // defaults to showing onboarding (safe fallback)
+    isOnboardingDone()
+      .then((done) => {
+        setShowOnboarding(!done);
+        setOnboardingChecked(true);
+        if (done) setLoading(!!window.pywebview);
+        else setLoading(false); // Don't show preloader during onboarding
+      })
+      .catch(() => {
+        // API failed — show onboarding as safe default
+        setShowOnboarding(true);
+        setOnboardingChecked(true);
+        setLoading(false);
+      });
   }, []);
 
   useEffect(() => {

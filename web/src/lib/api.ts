@@ -58,6 +58,41 @@ export interface AppStatus {
   hotkey: string;
 }
 
+/**
+ * Wait for pywebview API to be ready.
+ * Resolves immediately if already available, otherwise waits for the
+ * 'pywebviewready' event (fired by pywebview once the JS bridge is set up).
+ */
+let _apiReady: Promise<PyWebViewAPI | null> | null = null;
+function waitForApi(): Promise<PyWebViewAPI | null> {
+  if (!_apiReady) {
+    _apiReady = new Promise((resolve) => {
+      // Already available
+      if (window.pywebview?.api) {
+        resolve(window.pywebview.api);
+        return;
+      }
+      // Not in pywebview at all (dev mode)
+      if (!window.pywebview) {
+        resolve(null);
+        return;
+      }
+      // pywebview exists but api not ready yet — wait for the ready event
+      const handler = () => {
+        window.removeEventListener("pywebviewready", handler);
+        resolve(window.pywebview?.api ?? null);
+      };
+      window.addEventListener("pywebviewready", handler);
+      // Safety timeout: don't wait forever
+      setTimeout(() => {
+        window.removeEventListener("pywebviewready", handler);
+        resolve(window.pywebview?.api ?? null);
+      }, 5000);
+    });
+  }
+  return _apiReady;
+}
+
 function getApi(): PyWebViewAPI | null {
   return window.pywebview?.api ?? null;
 }
@@ -164,10 +199,15 @@ export async function downloadModel(modelId: string): Promise<{ status: string }
   return { status: "mock" };
 }
 
+/**
+ * Check if onboarding is done. WAITS for pywebview API to be ready
+ * before checking, to avoid race conditions where the API isn't
+ * available yet and the fallback incorrectly skips onboarding.
+ */
 export async function isOnboardingDone(): Promise<boolean> {
-  const api = getApi();
+  const api = await waitForApi();
   if (api) return api.is_onboarding_done();
-  return true;
+  return false; // No API = show onboarding (safe default)
 }
 
 export async function completeOnboarding(config: Record<string, unknown>): Promise<void> {
