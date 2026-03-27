@@ -366,8 +366,18 @@ class WebViewAPI:
         backend = "detecting..."
         if self.controller.transcriber:
             backend = self.controller.transcriber.backend
+
+        # Determine actual status
+        if self.controller.is_processing:
+            status = "Processing"
+        elif cfg.get("model") and not self.controller.transcriber:
+            # Model configured but transcriber not loaded yet = still loading
+            status = "Loading"
+        else:
+            status = "Ready"
+
         return {
-            "status": "Ready" if not self.controller.is_processing else "Processing",
+            "status": status,
             "is_recording": bool(self.controller.recorder and self.controller.recorder.recording),
             "is_processing": self.controller.is_processing,
             "pending_text": self.controller.pending_text,
@@ -456,12 +466,22 @@ def start_webview_app(controller: WhisperAppController) -> None:
             api._push_event("loading_done", True)
             return
 
-        success = controller.initialize_components()
+        try:
+            success = controller.initialize_components()
+        except Exception as e:
+            logger.exception("_init: initialize_components failed")
+            success = False
+            controller._last_init_error = str(e)
+
+        full_status = api.get_status()
         if success:
             controller.start_listener()
-            api._push_event("status_change", api.get_status())
         else:
-            api._push_event("status_change", {"status": "Error"})
+            error_msg = getattr(controller, "_last_init_error", "Unknown error")
+            full_status["status"] = "Error"
+            full_status["error_detail"] = error_msg
+            api._push_event("log", {"message": f"Erro ao inicializar: {error_msg}"})
+        api._push_event("status_change", full_status)
         api._push_event("loading_done", True)
 
     def _on_loaded() -> None:
