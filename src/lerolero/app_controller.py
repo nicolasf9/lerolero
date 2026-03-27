@@ -208,11 +208,11 @@ class WhisperAppController:
                 not self.transcriber
                 or self.current_model_id != self.config["model"]
                 or self.current_language != self.config["language"]
-                or self.current_device != self.config.get("device", "cpu")
+                or self.current_device != self.config.get("device", "auto")
                 or self.current_compute_type != self.config.get("compute_type", "auto")
             ):
                 model_id = self.config["model"]
-                device = self.config.get("device", "cpu")
+                device = self.config.get("device", "auto")
                 compute_type = self.config.get("compute_type", "auto")
 
                 # Use Parakeet if user selected a parakeet model
@@ -283,6 +283,7 @@ class WhisperAppController:
         except Exception as e:
             self.log(f"Error initializing components: {e}")
             logger.exception("Component initialization error")
+            self._last_init_error = str(e)
             return False
         else:
             return True
@@ -523,7 +524,7 @@ class WhisperAppController:
             recording_duration_s=round(rec_duration, 2),
             processing_duration_s=round(proc_duration, 2),
             model=self.config.get("model", ""),
-            device=self.config.get("device", "cpu"),
+            device=self.config.get("device", "auto"),
         )
         save_metric(metric)
         self.log(f"Session: {words} words, rec {rec_duration:.1f}s, proc {proc_duration:.1f}s")

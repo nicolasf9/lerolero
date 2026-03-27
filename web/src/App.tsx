@@ -66,7 +66,11 @@ export default function App() {
       setStatus(prev => ({ ...prev, ...(s as Partial<AppStatus>) }));
       if ((s as any).status === "Ready" || (s as any).status === "Error") setLoading(false);
     });
-    const u2 = on("loading_done", () => setLoading(false));
+    const u2 = on("loading_done", () => {
+      setLoading(false);
+      // Refresh status after init completes (picks up model name + backend)
+      getStatus().then(s => setStatus(s)).catch(() => {});
+    });
     getStatus().then(s => {
       setStatus(s);
       if (s.status !== "Loading") setLoading(false);

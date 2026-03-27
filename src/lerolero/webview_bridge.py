@@ -336,14 +336,24 @@ class WebViewAPI:
     def reinitialize(self) -> dict:
         """Re-initialize components (after model download)."""
         def _do_init() -> None:
-            success = self.controller.initialize_components()
+            try:
+                success = self.controller.initialize_components()
+            except Exception as e:
+                logger.exception("reinitialize failed")
+                success = False
+                self.controller._last_init_error = str(e)
+
+            full_status = self.get_status()
             if success:
                 self.controller.start_listener()
-                self._push_event("status_change", self.get_status())
-                self._push_event("loading_done", True)
+                self._push_event("status_change", full_status)
             else:
-                self._push_event("status_change", {**self.get_status(), "status": "Error"})
-                self._push_event("loading_done", True)
+                error_msg = getattr(self.controller, "_last_init_error", "Unknown error")
+                full_status["status"] = "Error"
+                full_status["error_detail"] = error_msg
+                self._push_event("status_change", full_status)
+                self._push_event("log", {"message": f"Erro ao inicializar: {error_msg}"})
+            self._push_event("loading_done", True)
 
         import threading
         threading.Thread(target=_do_init, daemon=True).start()
