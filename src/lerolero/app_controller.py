@@ -40,7 +40,7 @@ DEFAULT_CONFIG: dict[str, Any] = {
     "model": None,
     "language": None,
     "microphone_name": None,
-    "device": "cpu",
+    "device": "auto",
     "compute_type": "auto",
     "debug": False,
     "typing_wpm": 40,

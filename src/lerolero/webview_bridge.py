@@ -342,7 +342,7 @@ class WebViewAPI:
                 self._push_event("status_change", self.get_status())
                 self._push_event("loading_done", True)
             else:
-                self._push_event("status_change", {"status": "Error"})
+                self._push_event("status_change", {**self.get_status(), "status": "Error"})
                 self._push_event("loading_done", True)
 
         import threading
