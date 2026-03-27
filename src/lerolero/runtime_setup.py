@@ -62,6 +62,7 @@ _BACKEND_PACKAGES: dict[str, list[str]] = {
         "safetensors",
         "numpy",
         "scipy",
+        "onnx-asr",
     ],
 }
 
@@ -331,7 +332,7 @@ def check_deps_installed(backend: str) -> bool:
     checks = {
         "cuda": ["torch", "transformers"],
         "directml": ["torch", "onnxruntime", "optimum", "transformers"],
-        "cpu": ["torch", "transformers"],
+        "cpu": ["torch", "transformers", "onnx_asr"],
     }
 
     for mod in checks.get(backend, []):
