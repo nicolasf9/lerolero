@@ -31,25 +31,30 @@ export default function App() {
     document.documentElement.classList.toggle("dark", isDark);
   }, [isDark]);
 
+  // Single atomic check: get config + onboarding status together.
+  // If EITHER the onboarding flag is missing OR the model is not set,
+  // show onboarding. This is the ONLY way to determine onboarding state.
   useEffect(() => {
-    getConfig().then((c) => {
-      if (c.theme === "dark" || c.theme === "light") {
-        setIsDark(c.theme === "dark");
-      }
-      const accent = c.accent_color as string | undefined;
-      if (accent) applyAccentColor(accent);
-    });
-    // Check onboarding status — use .catch so a failed API call
-    // defaults to showing onboarding (safe fallback)
-    isOnboardingDone()
-      .then((done) => {
-        setShowOnboarding(!done);
+    Promise.all([getConfig(), isOnboardingDone()])
+      .then(([config, done]) => {
+        // Apply theme/accent regardless
+        if (config.theme === "dark" || config.theme === "light") {
+          setIsDark(config.theme === "dark");
+        }
+        const accent = config.accent_color as string | undefined;
+        if (accent) applyAccentColor(accent);
+
+        // THE KEY CHECK: no model = must onboard, period.
+        const hasModel = !!(config.model);
+        const needsOnboarding = !done || !hasModel;
+
+        setShowOnboarding(needsOnboarding);
         setOnboardingChecked(true);
-        if (done) setLoading(!!window.pywebview);
-        else setLoading(false); // Don't show preloader during onboarding
+        if (needsOnboarding) setLoading(false);
+        else setLoading(!!window.pywebview);
       })
       .catch(() => {
-        // API failed — show onboarding as safe default
+        // Any failure = show onboarding (safe default)
         setShowOnboarding(true);
         setOnboardingChecked(true);
         setLoading(false);
@@ -73,13 +78,12 @@ export default function App() {
   const toggleDark = useCallback(() => {
     setIsDark(d => {
       const next = !d;
-      // Persist theme to config (only sends theme key, no engine reload)
       saveConfig({ theme: next ? "dark" : "light" });
       return next;
     });
   }, []);
 
-  if (!onboardingChecked) return null; // Wait for onboarding check
+  if (!onboardingChecked) return null;
 
   if (showOnboarding) {
     return <OnboardingView onComplete={() => { setShowOnboarding(false); setLoading(true); }} />;
@@ -90,7 +94,6 @@ export default function App() {
       <Sidebar activeTab={activeTab} onTabChange={(t) => setActiveTab(t as Tab)} />
 
       <div className="flex-1 flex flex-col min-w-0" style={{ position: "relative", zIndex: 1 }}>
-        {/* Top bar */}
         <header
           className="flex items-center shrink-0"
           style={{
@@ -132,7 +135,6 @@ export default function App() {
           </button>
         </header>
 
-        {/* Tab content */}
         <main className="flex-1 overflow-hidden relative">
           <AnimatePresence mode="wait">
             <motion.div
@@ -152,7 +154,6 @@ export default function App() {
         </main>
       </div>
 
-      {/* Preloader */}
       <AnimatePresence>
         {loading && (
           <motion.div initial={{ opacity: 1 }} exit={{ opacity: 0 }} transition={{ duration: 0.3 }}
