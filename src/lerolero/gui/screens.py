@@ -120,7 +120,7 @@ class ConfigurationWindow(ctk.CTkToplevel):
 
         ctk.CTkLabel(form, text="Device", **_lbl).grid(row=row, column=0, padx=12, pady=8, sticky="w")
         self.cb_device = ctk.CTkComboBox(
-            form, values=["auto", "cpu", "GPU", "cuda", "openvino", "directml"], **_cmb,
+            form, values=["auto", "cpu", "cuda", "directml"], **_cmb,
         )
         self.cb_device.grid(row=row, column=1, padx=12, pady=8, sticky="ew")
         self.cb_device.set(cfg.get("device", "auto"))

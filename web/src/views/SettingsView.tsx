@@ -232,8 +232,7 @@ export function SettingsView() {
             <Select value={config.device || "auto"} onChange={(v) => set("device", v)}
               options={[
                 { label: "Auto", value: "auto" }, { label: "CPU", value: "cpu" },
-                { label: "CUDA", value: "cuda" }, { label: "OpenVINO", value: "openvino" },
-                { label: "DirectML", value: "directml" },
+                { label: "CUDA", value: "cuda" }, { label: "DirectML", value: "directml" },
               ]} />
           </Field>
         </Section>

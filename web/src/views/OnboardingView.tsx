@@ -149,11 +149,11 @@ function ModelStep({ config, setConfig, models, onNext }: {
   const [done, setDone] = useState(false);
   const [error, setError] = useState("");
 
-  const selectedModel = (config.model as string) || "openai/whisper-base";
+  const selectedModel = (config.model as string) || "istupakov/parakeet-tdt-0.6b-v3-onnx";
 
-  // Recommended models for onboarding (not the full list)
+  // Recommended models for onboarding — Parakeet first (fastest)
   const recommended = models.filter(m =>
-    ["openai/whisper-base", "openai/whisper-small", "openai/whisper-medium", "openai/whisper-large-v3-turbo", "istupakov/parakeet-tdt-0.6b-v3-onnx"].includes(m.value)
+    ["istupakov/parakeet-tdt-0.6b-v3-onnx", "openai/whisper-small", "openai/whisper-medium", "openai/whisper-large-v3-turbo"].includes(m.value)
   );
 
   useEffect(() => {
@@ -310,7 +310,7 @@ export function OnboardingView({ onComplete }: OnboardingProps) {
     live_typing: true,
     save_audio: false,
     save_history: true,
-    model: "openai/whisper-base",
+    model: "istupakov/parakeet-tdt-0.6b-v3-onnx",
   });
   const [models, setModels] = useState<{ label: string; value: string }[]>([]);
   const [devices, setDevices] = useState<string[]>(["(System Default)"]);

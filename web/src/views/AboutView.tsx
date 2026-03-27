@@ -52,7 +52,7 @@ export function AboutView() {
         </p>
 
         <p className="text-[11px] mt-[var(--sp-6)]" style={{ color: "var(--text-disabled)" }}>
-          OpenVINO · CUDA · DirectML · Whisper
+          Parakeet · CUDA · DirectML · Whisper
         </p>
         <p className="text-[10px] mt-[var(--sp-2)]" style={{ color: "var(--text-disabled)" }}>
           Based on whisper-typing by Roger Filomeno (MIT)

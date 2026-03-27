@@ -212,7 +212,6 @@ def _show_setup_window() -> bool:
     root.geometry(f"+{x}+{y}")
 
     gpu_labels = {
-        "openvino": "Intel GPU (OpenVINO)",
         "cuda": "NVIDIA GPU (CUDA)",
         "directml": "AMD GPU (DirectML)",
         "cpu": "CPU (modo universal)",
@@ -380,7 +379,7 @@ def main() -> None:
                 "Não foi possível instalar as dependências.\n\n"
                 "Verifique sua conexão com a internet e tente novamente.\n\n"
                 "Se o problema persistir, instale manualmente:\n"
-                "  pip install openvino optimum-intel transformers",
+                "  pip install torch transformers",
             )
             sys.exit(1)
 

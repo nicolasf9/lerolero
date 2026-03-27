@@ -639,7 +639,7 @@ class WhisperAppGUI(ctk.CTk):
         row += 1
 
         ctk.CTkLabel(form, text="Device", **_lbl).grid(row=row, column=0, padx=12, pady=6, sticky="w")
-        self._s_device = ctk.CTkComboBox(form, values=["auto", "cpu", "GPU", "cuda", "openvino", "directml"], **_cmb)
+        self._s_device = ctk.CTkComboBox(form, values=["auto", "cpu", "cuda", "directml"], **_cmb)
         self._s_device.grid(row=row, column=1, padx=12, pady=6, sticky="ew")
         self._s_device.set(cfg.get("device", "auto"))
         row += 1
@@ -769,7 +769,7 @@ class WhisperAppGUI(ctk.CTk):
                      font=ctk.CTkFont(family=_M, size=12), text_color=p.muted).grid(row=1, column=0, pady=(0, 16))
         ctk.CTkLabel(frame, text="100% offline speech-to-text for Windows",
                      font=ctk.CTkFont(family=_F, size=14), text_color=p.muted).grid(row=2, column=0, pady=4)
-        ctk.CTkLabel(frame, text="Powered by OpenVINO / CUDA / DirectML + Whisper",
+        ctk.CTkLabel(frame, text="Powered by Parakeet / CUDA / DirectML + Whisper",
                      font=ctk.CTkFont(family=_F, size=12), text_color=p.muted_dim).grid(row=3, column=0, pady=2)
         ctk.CTkLabel(frame, text="Your voice never leaves your computer.",
                      font=ctk.CTkFont(family=_F, size=12, slant="italic"),

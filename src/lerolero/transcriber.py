@@ -1,4 +1,4 @@
-"""Auto-detect GPU backend transcriber — Intel (OpenVINO), NVIDIA (CUDA), AMD (DirectML), CPU."""
+"""Auto-detect GPU backend transcriber — NVIDIA (CUDA), AMD (DirectML), CPU."""
 
 from __future__ import annotations
 
@@ -20,7 +20,7 @@ _VAD_ENERGY_FLOOR = 1e-6
 def _detect_backend(device_pref: str) -> str:
     """Auto-detect the best available backend.
 
-    Returns one of: 'openvino', 'cuda', 'directml', 'cpu'.
+    Returns one of: 'cuda', 'directml', 'cpu'.
     """
     pref = device_pref.lower().strip()
 
@@ -39,22 +39,6 @@ def _detect_backend(device_pref: str) -> str:
         except ImportError:
             pass
 
-    # Try Intel OpenVINO
-    if pref in ("openvino", "intel", "gpu", "auto", ""):
-        try:
-            from openvino import Core
-            core = Core()
-            devices = core.available_devices
-            if "GPU" in devices:
-                logger.info("Detected Intel GPU via OpenVINO — using OpenVINO backend")
-                return "openvino"
-            if pref in ("openvino", "intel"):
-                # User explicitly asked for Intel but no GPU — use CPU via OpenVINO
-                logger.info("No Intel GPU found, using OpenVINO on CPU")
-                return "openvino"
-        except ImportError:
-            pass
-
     # Try AMD DirectML
     if pref in ("directml", "amd", "gpu", "auto", ""):
         try:
@@ -66,56 +50,8 @@ def _detect_backend(device_pref: str) -> str:
         except ImportError:
             pass
 
-    # Fallback: OpenVINO on CPU if available, else pure torch CPU
-    try:
-        import openvino  # noqa: F401
-        logger.info("Falling back to OpenVINO on CPU")
-        return "openvino"
-    except ImportError:
-        pass
-
     logger.info("No GPU acceleration found — using PyTorch CPU")
     return "cpu"
-
-
-def _build_openvino_pipeline(
-    model_id: str, device: str, cache_dir: str | None,
-) -> object:
-    """Build an OpenVINO ASR pipeline (Intel GPUs and CPUs)."""
-    from optimum.intel import OVModelForSpeechSeq2Seq
-    from transformers import AutoProcessor, pipeline
-
-    processor = AutoProcessor.from_pretrained(model_id, cache_dir=cache_dir)
-
-    # Try GPU first, fall back to CPU if GPU hangs or fails
-    ov_device = "GPU" if device not in ("cpu", "CPU") else "CPU"
-    try:
-        if ov_device == "GPU":
-            import concurrent.futures
-            logger.info("Trying OpenVINO on GPU...")
-
-            def _load_gpu():
-                return OVModelForSpeechSeq2Seq.from_pretrained(
-                    model_id, export=True, device="GPU", cache_dir=cache_dir,
-                )
-
-            with concurrent.futures.ThreadPoolExecutor(max_workers=1) as pool:
-                model = pool.submit(_load_gpu).result(timeout=120)
-        else:
-            raise RuntimeError("CPU requested")
-    except Exception as e:
-        logger.warning("OpenVINO GPU failed (%s), falling back to CPU", e)
-        model = OVModelForSpeechSeq2Seq.from_pretrained(
-            model_id, export=True, device="CPU", cache_dir=cache_dir,
-        )
-
-    return pipeline(
-        "automatic-speech-recognition",
-        model=model,
-        tokenizer=processor.tokenizer,
-        feature_extractor=processor.feature_extractor,
-        chunk_length_s=30,
-    )
 
 
 def _build_cuda_pipeline(
@@ -204,9 +140,7 @@ class Transcriber:
         logger.info("Transcriber using backend: %s for model: %s", self.backend, model_id)
 
         # Build the appropriate pipeline
-        if self.backend == "openvino":
-            self.pipe = _build_openvino_pipeline(model_id, device, download_root)
-        elif self.backend == "cuda":
+        if self.backend == "cuda":
             self.pipe = _build_cuda_pipeline(model_id, compute_type, download_root)
         elif self.backend == "directml":
             self.pipe = _build_directml_pipeline(model_id, download_root)
@@ -249,13 +183,7 @@ class Transcriber:
         initial_prompt: str = "",
         task: str = "transcribe",
     ) -> str:
-        """Transcribe audio to text.
-
-        Args:
-            audio_input: Audio file path or numpy array.
-            initial_prompt: Context vocabulary hint (improves accuracy per app).
-            task: "transcribe" or "translate" (translate always outputs English).
-        """
+        """Transcribe audio to text."""
         if isinstance(audio_input, np.ndarray) and not self._has_speech(audio_input):
             return ""
 
@@ -267,7 +195,6 @@ class Transcriber:
                 generate_kwargs["language"] = lang
             generate_kwargs["task"] = task
 
-        # initial_prompt is a pipeline-level kwarg, NOT a generate kwarg
         pipe_kwargs: dict = {"generate_kwargs": generate_kwargs}
         if initial_prompt:
             pipe_kwargs["initial_prompt"] = initial_prompt
@@ -275,7 +202,6 @@ class Transcriber:
         try:
             result = self.pipe(audio_input, **pipe_kwargs)
         except (ValueError, TypeError):
-            # Fallback: some pipeline versions don't support initial_prompt
             result = self.pipe(audio_input, generate_kwargs=generate_kwargs)
 
         if isinstance(result, list):

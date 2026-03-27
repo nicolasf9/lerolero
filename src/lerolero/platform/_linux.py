@@ -140,7 +140,7 @@ class LinuxPlatform:
         if "nvidia" in lspci:
             return "cuda"
         if "intel" in lspci and ("arc" in lspci or "iris" in lspci):
-            return "openvino"
+            return "cpu"  # Intel GPUs use CPU backend (Parakeet recommended)
         # DirectML is Windows-only, AMD on Linux uses ROCm (not supported yet)
 
         return "cpu"

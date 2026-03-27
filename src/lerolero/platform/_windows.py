@@ -186,7 +186,7 @@ class WindowsPlatform:
             if "nvidia" in output and any(x in output for x in ("geforce", "rtx", "gtx", "quadro")):
                 return "cuda"
             if "intel" in output and any(x in output for x in ("arc", "iris", "uhd")):
-                return "openvino"
+                return "cpu"  # Intel GPUs use CPU backend (Parakeet recommended)
             if "amd" in output and any(x in output for x in ("radeon", "rx ")):
                 return "directml"
         except Exception:

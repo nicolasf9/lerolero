@@ -33,7 +33,7 @@ datas += [('src/lerolero/assets/icon.png', 'lerolero/assets')]
 EXCLUDE_HEAVY = [
     'torch', 'torchvision', 'torchaudio', 'torch._C', 'torch.cuda',
     'caffe2', 'functorch',
-    'openvino', 'optimum', 'optimum_intel',
+    'optimum', 'optimum_intel',
     'transformers', 'tokenizers', 'safetensors',
     'huggingface_hub', 'accelerate',
     'onnxruntime', 'onnx',

@@ -32,18 +32,6 @@ _GET_PIP_URL = "https://bootstrap.pypa.io/get-pip.py"
 
 # Packages per backend
 _BACKEND_PACKAGES: dict[str, list[str]] = {
-    "openvino": [
-        "torch",
-        "openvino",
-        "optimum-intel",
-        "optimum",
-        "transformers",
-        "huggingface-hub",
-        "tokenizers",
-        "safetensors",
-        "numpy",
-        "scipy",
-    ],
     "cuda": [
         "torch",
         "torchaudio",
@@ -68,9 +56,6 @@ _BACKEND_PACKAGES: dict[str, list[str]] = {
     ],
     "cpu": [
         "torch",
-        "openvino",
-        "optimum-intel",
-        "optimum",
         "transformers",
         "huggingface-hub",
         "tokenizers",
@@ -309,7 +294,7 @@ def _add_deps_to_path() -> None:
         if sys.platform == "win32":
             # DLL loading on Windows
             os.add_dll_directory(deps_str)
-            for sub in ["openvino/libs", "Library/bin"]:
+            for sub in ["Library/bin"]:
                 dll_dir = deps_dir / sub
                 if dll_dir.exists():
                     os.add_dll_directory(str(dll_dir))
@@ -317,7 +302,7 @@ def _add_deps_to_path() -> None:
             # Shared library path on Linux
             ld_path = os.environ.get("LD_LIBRARY_PATH", "")
             new_paths = [deps_str]
-            for sub in ["openvino/libs"]:
+            for sub in []:
                 lib_dir = deps_dir / sub
                 if lib_dir.exists():
                     new_paths.append(str(lib_dir))
@@ -344,10 +329,9 @@ def check_deps_installed(backend: str) -> bool:
     _add_deps_to_path()
 
     checks = {
-        "openvino": ["torch", "openvino", "optimum", "transformers"],
         "cuda": ["torch", "transformers"],
         "directml": ["torch", "onnxruntime", "optimum", "transformers"],
-        "cpu": ["torch", "openvino", "optimum", "transformers"],
+        "cpu": ["torch", "transformers"],
     }
 
     for mod in checks.get(backend, []):
@@ -527,7 +511,7 @@ def ensure_deps(progress_callback=None) -> str:
             f"Verifique sua conexão com a internet.\n\n"
             f"Log de erros: {log_path}\n\n"
             f"Se o problema persistir, instale Python de https://python.org\n"
-            f"e rode: pip install openvino optimum-intel transformers"
+            f"e rode: pip install torch transformers"
         )
 
     return backend
