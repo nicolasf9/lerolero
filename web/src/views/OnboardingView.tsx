@@ -153,7 +153,7 @@ function ModelStep({ config, setConfig, models, onNext }: {
 
   // Recommended models for onboarding (not the full list)
   const recommended = models.filter(m =>
-    ["openai/whisper-base", "openai/whisper-small", "openai/whisper-medium", "openai/whisper-large-v3-turbo"].includes(m.value)
+    ["openai/whisper-base", "openai/whisper-small", "openai/whisper-medium", "openai/whisper-large-v3-turbo", "istupakov/parakeet-tdt-0.6b-v3-onnx"].includes(m.value)
   );
 
   useEffect(() => {

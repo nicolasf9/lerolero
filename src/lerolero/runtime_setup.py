@@ -436,8 +436,36 @@ def download_model(model_id: str, progress_callback=None) -> bool:
 
     try:
         if is_parakeet:
+            # Parakeet needs onnx-asr — install it if not available
+            try:
+                import onnx_asr
+            except ImportError:
+                _log_to_file("onnx-asr not found, installing...")
+                if progress_callback:
+                    progress_callback("Instalando onnx-asr...", 10)
+                python_exe = _get_embedded_python()
+                if not python_exe:
+                    # Try system python as fallback
+                    python_exe = _get_system_python()
+                if python_exe:
+                    deps_dir = _get_deps_dir()
+                    deps_dir.mkdir(parents=True, exist_ok=True)
+                    success, error = _pip_install(python_exe, ["onnx-asr"], deps_dir)
+                    if not success:
+                        _log_to_file(f"Failed to install onnx-asr: {error}")
+                        if progress_callback:
+                            progress_callback(f"Erro ao instalar onnx-asr: {error[:60]}", -1)
+                        return False
+                    _add_deps_to_path()
+                    import importlib
+                    import onnx_asr
+                else:
+                    _log_to_file("No Python available to install onnx-asr")
+                    if progress_callback:
+                        progress_callback("Erro: Python não encontrado para instalar onnx-asr", -1)
+                    return False
+
             # Parakeet downloads via onnx-asr Recognizer constructor
-            import onnx_asr  # noqa: F401
             if progress_callback:
                 progress_callback("Baixando modelo Parakeet v3...", 30)
             _log_to_file("Downloading Parakeet model via onnx-asr...")
