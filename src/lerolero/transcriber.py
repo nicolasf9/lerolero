@@ -85,12 +85,30 @@ def _build_openvino_pipeline(
     from optimum.intel import OVModelForSpeechSeq2Seq
     from transformers import AutoProcessor, pipeline
 
-    ov_device = "GPU" if device != "cpu" else "CPU"
-
     processor = AutoProcessor.from_pretrained(model_id, cache_dir=cache_dir)
-    model = OVModelForSpeechSeq2Seq.from_pretrained(
-        model_id, export=True, device=ov_device, cache_dir=cache_dir,
-    )
+
+    # Try GPU first, fall back to CPU if GPU hangs or fails
+    ov_device = "GPU" if device not in ("cpu", "CPU") else "CPU"
+    try:
+        if ov_device == "GPU":
+            import concurrent.futures
+            logger.info("Trying OpenVINO on GPU...")
+
+            def _load_gpu():
+                return OVModelForSpeechSeq2Seq.from_pretrained(
+                    model_id, export=True, device="GPU", cache_dir=cache_dir,
+                )
+
+            with concurrent.futures.ThreadPoolExecutor(max_workers=1) as pool:
+                model = pool.submit(_load_gpu).result(timeout=120)
+        else:
+            raise RuntimeError("CPU requested")
+    except Exception as e:
+        logger.warning("OpenVINO GPU failed (%s), falling back to CPU", e)
+        model = OVModelForSpeechSeq2Seq.from_pretrained(
+            model_id, export=True, device="CPU", cache_dir=cache_dir,
+        )
+
     return pipeline(
         "automatic-speech-recognition",
         model=model,
