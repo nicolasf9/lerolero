@@ -33,6 +33,7 @@ _GET_PIP_URL = "https://bootstrap.pypa.io/get-pip.py"
 # Packages per backend
 _BACKEND_PACKAGES: dict[str, list[str]] = {
     "openvino": [
+        "torch",
         "openvino",
         "optimum-intel",
         "optimum",
@@ -55,6 +56,7 @@ _BACKEND_PACKAGES: dict[str, list[str]] = {
         "scipy",
     ],
     "directml": [
+        "torch",
         "onnxruntime-directml",
         "optimum",
         "transformers",
@@ -65,6 +67,7 @@ _BACKEND_PACKAGES: dict[str, list[str]] = {
         "scipy",
     ],
     "cpu": [
+        "torch",
         "openvino",
         "optimum-intel",
         "optimum",
@@ -341,10 +344,10 @@ def check_deps_installed(backend: str) -> bool:
     _add_deps_to_path()
 
     checks = {
-        "openvino": ["openvino", "optimum", "transformers"],
+        "openvino": ["torch", "openvino", "optimum", "transformers"],
         "cuda": ["torch", "transformers"],
-        "directml": ["onnxruntime", "optimum", "transformers"],
-        "cpu": ["openvino", "optimum", "transformers"],
+        "directml": ["torch", "onnxruntime", "optimum", "transformers"],
+        "cpu": ["torch", "openvino", "optimum", "transformers"],
     }
 
     for mod in checks.get(backend, []):
