@@ -13,7 +13,7 @@ permissions:
   contents: write
 
 jobs:
-  build:
+  build-windows:
     name: Build Windows Installer
     runs-on: windows-latest
     env:
@@ -54,23 +54,106 @@ jobs:
           New-Item -ItemType Directory -Force -Path "$distPath/history" | Out-Null
           New-Item -ItemType Directory -Force -Path "$distPath/models" | Out-Null
 
+      - name: Build Inno Setup installer
+        run: |
+          choco install innosetup -y --no-progress
+          iscc "/DMyAppVersion=${{ env.VERSION }}" installer.iss
+
+      - name: Upload Windows artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: windows-installer
+          path: dist/LeroLero-*-setup.exe
+
+  build-macos:
+    name: Build macOS App
+    runs-on: macos-latest
+    env:
+      VERSION: ${{ inputs.version || github.ref_name }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.13"
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+
+      - name: Build React frontend
+        working-directory: web
+        run: |
+          npm ci
+          npm run build
+
+      - name: Install Python dependencies
+        run: |
+          pip install uv
+          uv sync --locked
+          uv pip install pyinstaller
+
+      - name: Build macOS app with PyInstaller
+        run: |
+          uv run pyinstaller \
+            --noconfirm --onedir --windowed \
+            --name "LeroLero" \
+            --collect-all "lerolero" \
+            --collect-all "webview" \
+            --hidden-import "pynput.keyboard._darwin" \
+            --hidden-import "pynput.mouse._darwin" \
+            --paths "src" \
+            --add-data "web/dist:lerolero/web_dist" \
+            --add-data "src/lerolero/assets/icon.png:lerolero/assets" \
+            --icon "src/lerolero/assets/icon.png" \
+            --exclude-module "torch" \
+            --exclude-module "transformers" \
+            --exclude-module "scipy" \
+            "src/lerolero/__main__.py"
+
+      - name: Create DMG
+        run: |
+          hdiutil create -volname "LeroLero" -srcfolder "dist/LeroLero.app" \
+            -ov -format UDZO "dist/LeroLero-${VERSION}-macos.dmg"
+
+      - name: Upload macOS artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: macos-dmg
+          path: dist/LeroLero-*-macos.dmg
+
+  release:
+    name: Create GitHub Release
+    needs: [build-windows, build-macos]
+    runs-on: ubuntu-latest
+    env:
+      VERSION: ${{ inputs.version || github.ref_name }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
       - name: Create tag
         if: ${{ github.event_name == 'workflow_dispatch' }}
         run: |
           git tag "${{ env.VERSION }}" || true
           git push origin "${{ env.VERSION }}" || true
 
-      - name: Build Inno Setup installer
-        run: |
-          choco install innosetup -y --no-progress
-          iscc "/DMyAppVersion=${{ env.VERSION }}" installer.iss
+      - name: Download all artifacts
+        uses: actions/download-artifact@v4
+        with:
+          path: artifacts
 
       - name: Create GitHub Release
         uses: softprops/action-gh-release@v2
         with:
           tag_name: ${{ env.VERSION }}
           name: "LeroLero ${{ env.VERSION }}"
-          files: dist/LeroLero-*-setup.exe
+          files: |
+            artifacts/windows-installer/*
+            artifacts/macos-dmg/*
           generate_release_notes: true
           draft: false
           prerelease: false

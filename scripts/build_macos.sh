@@ -20,7 +20,6 @@ uv run pyinstaller \
     --add-data "src/lerolero/assets/icon.png:lerolero/assets" \
     --icon "src/lerolero/assets/icon.png" \
     --exclude-module "torch" \
-    --exclude-module "openvino" \
     --exclude-module "transformers" \
     --exclude-module "scipy" \
     "src/lerolero/__main__.py"
