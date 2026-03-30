@@ -60,7 +60,7 @@ jobs:
           iscc "/DMyAppVersion=${{ env.VERSION }}" installer.iss
 
       - name: Upload Windows artifact
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: windows-installer
           path: dist/LeroLero-*-setup.exe
@@ -120,7 +120,7 @@ jobs:
             -ov -format UDZO "dist/LeroLero-${VERSION}-macos.dmg"
 
       - name: Upload macOS artifact
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: macos-dmg
           path: dist/LeroLero-*-macos.dmg
