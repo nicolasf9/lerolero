@@ -15,8 +15,10 @@ hiddenimports = [
 
 # Bundle everything needed — onnxruntime-openvino and onnx-asr are NOT excluded.
 # The user gets a complete, offline-ready app on first install.
+# certifi bundles the CA bundle required for HTTPS inside the frozen exe.
 for pkg in ('lerolero', 'webview', 'clr_loader', 'pythonnet',
-            'onnxruntime', 'onnx_asr', 'huggingface_hub'):
+            'onnxruntime', 'onnx_asr', 'huggingface_hub', 'certifi',
+            'requests', 'urllib3', 'charset_normalizer', 'idna'):
     try:
         tmp = collect_all(pkg)
         datas += tmp[0]; binaries += tmp[1]; hiddenimports += tmp[2]

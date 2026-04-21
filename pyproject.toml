@@ -22,7 +22,11 @@ classifiers = [
 # All deps bundled in the exe — no runtime install.
 dependencies = [
   "pywebview>=6.0",
-  "huggingface_hub[hf_xet]>=0.20.0",
+  # Plain huggingface_hub (no hf_xet extra — its Rust backend is unreliable
+  # when bundled by PyInstaller; plain HTTP downloads are slower but reliable).
+  "huggingface_hub>=0.20.0",
+  # certifi: pinned CA bundle — required for SSL in frozen exe.
+  "certifi>=2024.0.0",
   "numpy>=2.4.1",
   "pillow>=12.1.1",
   "pygetwindow>=0.0.9; sys_platform == 'win32'",

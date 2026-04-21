@@ -227,9 +227,24 @@ function ModelStep({ config, setConfig, models, onNext }: {
       )}
 
       {error && (
-        <p style={{ fontSize: 12, color: "var(--error, #ef4444)", marginTop: 12, textAlign: "center" }}>
-          {error}
-        </p>
+        <div style={{
+          marginTop: 12,
+          padding: "10px 12px",
+          borderRadius: 8,
+          background: "rgba(239, 68, 68, 0.08)",
+          border: "1px solid rgba(239, 68, 68, 0.25)",
+          maxHeight: 140,
+          overflow: "auto",
+        }}>
+          <pre style={{
+            fontSize: 11,
+            color: "var(--error, #ef4444)",
+            margin: 0,
+            whiteSpace: "pre-wrap",
+            wordBreak: "break-word",
+            fontFamily: "ui-monospace, SFMono-Regular, Menlo, monospace",
+          }}>{error}</pre>
+        </div>
       )}
 
       <div style={{ textAlign: "center", marginTop: 24 }}>

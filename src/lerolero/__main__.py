@@ -57,8 +57,10 @@ def main() -> None:
     """Application entry point."""
     try:
         from lerolero.paths import get_log_path, migrate_legacy_data
+        from lerolero.runtime_env import apply as apply_runtime_env
 
         migrate_legacy_data()
+        apply_runtime_env()  # SSL certs + HF cache path — must precede any import that hits the network
         _maybe_reset_onboarding_on_upgrade()
 
         logging.basicConfig(

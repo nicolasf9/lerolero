@@ -290,25 +290,32 @@ class WebViewAPI:
     def download_model(self, model_id: str) -> dict:
         """Download a model in background, pushing progress events."""
         def _do_download() -> None:
-            last_error = [None]
+            # Collect ALL error messages (the runtime pushes the short
+            # message first, then a "Detalhes: ..." traceback tail).
+            error_lines: list[str] = []
 
             def progress_cb(msg: str, pct: int) -> None:
                 self._push_event("model_download_progress", {
                     "message": msg, "percent": pct, "model": model_id,
                 })
                 if pct < 0:
-                    last_error[0] = msg
+                    error_lines.append(msg)
 
             try:
                 from lerolero.runtime_setup import download_model
                 success = download_model(model_id, progress_cb)
                 self._push_event("model_download_done", {
-                    "model": model_id, "success": success,
-                    "error": last_error[0] if not success else None,
+                    "model": model_id,
+                    "success": success,
+                    "error": "\n".join(error_lines) if not success and error_lines else None,
                 })
-            except Exception as e:
+            except Exception as e:  # noqa: BLE001
+                import traceback
+                tb = traceback.format_exc()
                 self._push_event("model_download_done", {
-                    "model": model_id, "success": False, "error": str(e),
+                    "model": model_id,
+                    "success": False,
+                    "error": f"{type(e).__name__}: {e!s}\n{tb[-400:]}",
                 })
 
         threading.Thread(target=_do_download, daemon=True).start()

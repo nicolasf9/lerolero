@@ -269,11 +269,6 @@ wheels = [
     { url = "https://files.pythonhosted.org/packages/cb/bd/1a875e0d592d447cbc02805fd3fe0f497714d6a2583f59d14fa9ebad96eb/huggingface_hub-0.36.0-py3-none-any.whl", hash = "sha256:7bcc9ad17d5b3f07b57c78e79d527102d08313caa278a641993acddcb894548d", size = 566094, upload-time = "2025-10-23T12:11:59.557Z" },
 ]
 
-[package.optional-dependencies]
-hf-xet = [
-    { name = "hf-xet" },
-]
-
 [[package]]
 name = "idna"
 version = "3.11"
@@ -306,7 +301,8 @@ name = "lerolero"
 version = "1.0.0"
 source = { editable = "." }
 dependencies = [
-    { name = "huggingface-hub", extra = ["hf-xet"] },
+    { name = "certifi" },
+    { name = "huggingface-hub" },
     { name = "numpy" },
     { name = "onnx-asr" },
     { name = "onnxruntime", marker = "sys_platform == 'darwin'" },
@@ -331,7 +327,8 @@ dev = [
 
 [package.metadata]
 requires-dist = [
-    { name = "huggingface-hub", extras = ["hf-xet"], specifier = ">=0.20.0" },
+    { name = "certifi", specifier = ">=2024.0.0" },
+    { name = "huggingface-hub", specifier = ">=0.20.0" },
     { name = "numpy", specifier = ">=2.4.1" },
     { name = "onnx-asr", specifier = ">=0.3.0" },
     { name = "onnxruntime", marker = "sys_platform == 'darwin'", specifier = ">=1.17.0" },
