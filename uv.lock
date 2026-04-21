@@ -309,7 +309,8 @@ dependencies = [
     { name = "huggingface-hub", extra = ["hf-xet"] },
     { name = "numpy" },
     { name = "onnx-asr" },
-    { name = "onnxruntime-openvino" },
+    { name = "onnxruntime", marker = "sys_platform == 'darwin'" },
+    { name = "onnxruntime-openvino", marker = "sys_platform != 'darwin'" },
     { name = "pillow" },
     { name = "pygetwindow", marker = "sys_platform == 'win32'" },
     { name = "pynput" },
@@ -333,7 +334,8 @@ requires-dist = [
     { name = "huggingface-hub", extras = ["hf-xet"], specifier = ">=0.20.0" },
     { name = "numpy", specifier = ">=2.4.1" },
     { name = "onnx-asr", specifier = ">=0.3.0" },
-    { name = "onnxruntime-openvino", specifier = ">=1.17.0" },
+    { name = "onnxruntime", marker = "sys_platform == 'darwin'", specifier = ">=1.17.0" },
+    { name = "onnxruntime-openvino", marker = "sys_platform != 'darwin'", specifier = ">=1.17.0" },
     { name = "pillow", specifier = ">=12.1.1" },
     { name = "pygetwindow", marker = "sys_platform == 'win32'", specifier = ">=0.0.9" },
     { name = "pynput", specifier = ">=1.8.1" },
@@ -433,6 +435,22 @@ dependencies = [
 sdist = { url = "https://files.pythonhosted.org/packages/78/f6/b154881761a593312f509522f99542acffa2516f7a1df6ddf5660ad4a162/onnx_asr-0.11.0.tar.gz", hash = "sha256:57ad8d9571dc17db95f0daf9ba432b9472383de320c610735850e56b5375a37d", size = 43665, upload-time = "2026-03-23T02:30:57.349Z" }
 wheels = [
     { url = "https://files.pythonhosted.org/packages/82/04/bdffd682cc38b43144b6528186c80451f219a05e3fd0eb331a548f455b9a/onnx_asr-0.11.0-py3-none-any.whl", hash = "sha256:142d8b3ce7716684992826a269304f5ce9cf1c0fe704b751358e223f45d2a5cf", size = 138349, upload-time = "2026-03-23T02:30:58.566Z" },
+]
+
+[[package]]
+name = "onnxruntime"
+version = "1.24.4"
+source = { registry = "https://pypi.org/simple" }
+dependencies = [
+    { name = "flatbuffers" },
+    { name = "numpy" },
+    { name = "packaging" },
+    { name = "protobuf" },
+    { name = "sympy" },
+]
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/e9/f0/8a21ec0a97e40abb7d8da1e8b20fb9e1af509cc6d191f6faa75f73622fb2/onnxruntime-1.24.4-cp313-cp313-macosx_14_0_arm64.whl", hash = "sha256:e99a48078baaefa2b50fe5836c319499f71f13f76ed32d0211f39109147a49e0", size = 17341922, upload-time = "2026-03-17T22:03:56.364Z" },
+    { url = "https://files.pythonhosted.org/packages/89/db/b30dbbd6037847b205ab75d962bc349bf1e46d02a65b30d7047a6893ffd6/onnxruntime-1.24.4-cp314-cp314-macosx_14_0_arm64.whl", hash = "sha256:fbff2a248940e3398ae78374c5a839e49a2f39079b488bc64439fa0ec327a3e4", size = 17343300, upload-time = "2026-03-17T22:03:59.223Z" },
 ]
 
 [[package]]

@@ -32,7 +32,8 @@ dependencies = [
   "sounddevice>=0.5.3",
   # ASR engine + model loader — bundled (no runtime install).
   "onnx-asr>=0.3.0",
-  "onnxruntime-openvino>=1.17.0",
+  "onnxruntime-openvino>=1.17.0; sys_platform != 'darwin'",
+  "onnxruntime>=1.17.0; sys_platform == 'darwin'",
 ]
 
 [project.urls]
