@@ -23,18 +23,26 @@ def download_model(model_id: str, progress_callback: Callable | None = None) -> 
         progress_callback(f"Baixando {model_id.split('/')[-1]}...", 5)
 
     try:
+        if progress_callback:
+            progress_callback("Importando onnx-asr...", 10)
         import onnx_asr
         from lerolero.transcriber import _normalize_model_id
         name = _normalize_model_id(model_id)
         if progress_callback:
-            progress_callback("Baixando modelo...", 25)
-        # Using CPU provider for the download — any provider downloads the same files.
+            progress_callback(f"Baixando {name}...", 25)
         onnx_asr.load_model(name, providers=["CPUExecutionProvider"])
         if progress_callback:
             progress_callback("✅ Modelo pronto!", 100)
         return True
+    except ImportError as e:
+        msg = f"onnx-asr não encontrado: {e}"
+        logger.error(msg)
+        if progress_callback:
+            progress_callback(msg, -1)
+        return False
     except Exception as e:
+        msg = f"Erro: {e!s}"
         logger.exception("Model download failed")
         if progress_callback:
-            progress_callback(f"⚠ {e!s:.80s}", -1)
+            progress_callback(msg, -1)
         return False

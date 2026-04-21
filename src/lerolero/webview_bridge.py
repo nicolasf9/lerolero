@@ -290,17 +290,21 @@ class WebViewAPI:
     def download_model(self, model_id: str) -> dict:
         """Download a model in background, pushing progress events."""
         def _do_download() -> None:
+            last_error = [None]
+
             def progress_cb(msg: str, pct: int) -> None:
                 self._push_event("model_download_progress", {
                     "message": msg, "percent": pct, "model": model_id,
                 })
+                if pct < 0:
+                    last_error[0] = msg
 
             try:
                 from lerolero.runtime_setup import download_model
                 success = download_model(model_id, progress_cb)
                 self._push_event("model_download_done", {
                     "model": model_id, "success": success,
-                    "error": None if success else "Download falhou",
+                    "error": last_error[0] if not success else None,
                 })
             except Exception as e:
                 self._push_event("model_download_done", {
