@@ -23,7 +23,7 @@ classifiers = [
 dependencies = [
   "pywebview>=6.0",
   "huggingface_hub[hf_xet]>=0.20.0",
-  "numpy>=2.4.1",
+  "numpy>=2.4.4",
   "pillow>=12.1.1",
   "pygetwindow>=0.0.9; sys_platform == 'win32'",
   "pynput>=1.8.1",
