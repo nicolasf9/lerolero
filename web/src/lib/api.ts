@@ -125,7 +125,7 @@ export async function getModels(): Promise<{ label: string; value: string }[]> {
   return [
     { label: "whisper-base", value: "openai/whisper-base" },
     { label: "whisper-small", value: "openai/whisper-small" },
-    { label: "⚡ Parakeet v3 (10-50x faster)", value: "istupakov/parakeet-tdt-0.6b-v3-onnx" },
+    { label: "⚡ Parakeet v3 (10-50x faster)", value: "nemo-parakeet-tdt-0.6b-v3" },
   ];
 }
 

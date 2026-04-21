@@ -26,7 +26,6 @@ from lerolero.overlay_container import StatusOverlay
 from lerolero.paths import get_config_path, get_data_dir, get_history_dir
 from lerolero.text_cleaner import clean_transcript
 from lerolero.transcriber import Transcriber
-from lerolero.transcriber_parakeet import ParakeetTranscriber, is_available as parakeet_available
 from lerolero.window_manager import WindowManager
 
 logger = logging.getLogger(__name__)
@@ -41,7 +40,6 @@ DEFAULT_CONFIG: dict[str, Any] = {
     "language": None,
     "microphone_name": None,
     "device": "auto",
-    "compute_type": "auto",
     "debug": False,
     "typing_wpm": 40,
     "refocus_window": True,
@@ -102,7 +100,6 @@ class WhisperAppController:
         self.current_language: str | None = None
         self.current_mic_index: int | None = None
         self.current_device: str | None = None
-        self.current_compute_type: str | None = None
 
         self.stop_live_transcribe: threading.Event = threading.Event()
         self.live_transcribe_thread: threading.Thread | None = None
@@ -209,65 +206,20 @@ class WhisperAppController:
                 or self.current_model_id != self.config["model"]
                 or self.current_language != self.config["language"]
                 or self.current_device != self.config.get("device", "auto")
-                or self.current_compute_type != self.config.get("compute_type", "auto")
             ):
                 model_id = self.config["model"]
                 device = self.config.get("device", "auto")
-                compute_type = self.config.get("compute_type", "auto")
 
-                # Use Parakeet if user selected a parakeet model
-                if model_id.startswith("parakeet") or "parakeet" in model_id:
-                    if not parakeet_available():
-                        self.log("Instalando Parakeet automaticamente...")
-                        try:
-                            from lerolero.runtime_setup import _get_deps_dir, _get_embedded_python, _pip_install
-                            python_exe = _get_embedded_python()
-                            if python_exe:
-                                deps_dir = _get_deps_dir()
-                                deps_dir.mkdir(parents=True, exist_ok=True)
-                                success, error = _pip_install(python_exe, ["onnx-asr"], deps_dir)
-                                if success:
-                                    self.log("Parakeet instalado com sucesso!")
-                                else:
-                                    raise RuntimeError(error)
-                            else:
-                                raise RuntimeError("Embedded Python not found")
-                        except Exception as e:
-                            self.log(f"Falha ao instalar Parakeet: {e}")
-                            self.log("Voltando para Whisper...")
-                            model_id = "openai/whisper-small"
-
-                    if parakeet_available():
-                        self.log(f"Carregando Parakeet ({model_id})...")
-                        self.transcriber = ParakeetTranscriber(
-                            model_id=model_id,
-                            language=self.config["language"],
-                            device=device,
-                            download_root=self.config.get("model_cache_dir"),
-                        )
-                    else:
-                        self.log("Parakeet indisponível. Usando Whisper...")
-                        model_id = "openai/whisper-small"
-                        self.transcriber = Transcriber(
-                            model_id=model_id,
-                            language=self.config["language"],
-                            device=device,
-                            compute_type=compute_type,
-                            download_root=self.config.get("model_cache_dir"),
-                        )
-                else:
-                    self.log(f"Loading Whisper ({model_id})...")
-                    self.transcriber = Transcriber(
-                        model_id=model_id,
-                        language=self.config["language"],
-                        device=device,
-                        compute_type=compute_type,
-                        download_root=self.config.get("model_cache_dir"),
-                    )
+                self.log(f"Loading model ({model_id})...")
+                self.transcriber = Transcriber(
+                    model_id=model_id,
+                    language=self.config["language"],
+                    device=device,
+                    download_root=self.config.get("model_cache_dir"),
+                )
                 self.current_model_id = self.config["model"]
                 self.current_language = self.config["language"]
                 self.current_device = device
-                self.current_compute_type = compute_type
 
             self.recorder = AudioRecorder(device_index=self.current_mic_index)
 

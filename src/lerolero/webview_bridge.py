@@ -77,10 +77,10 @@ def _apply_window_icon() -> None:
         pass
 
 from lerolero.app_controller import WhisperAppController
-from lerolero.constants import WHISPER_MODELS
-from lerolero.gui.personality import greeting, status_text
+from lerolero.constants import MODELS
 from lerolero.metrics import aggregate, backfill_from_transcripts, format_duration
 from lerolero.paths import get_data_dir, get_history_dir
+from lerolero.personality import greeting
 
 logger = logging.getLogger(__name__)
 
@@ -130,7 +130,7 @@ class WebViewAPI:
             threading.Thread(target=_reinit, daemon=True).start()
 
     def get_models(self) -> list[dict]:
-        return [{"label": m[0], "value": m[1]} for m in WHISPER_MODELS]
+        return [{"label": m[0], "value": m[1]} for m in MODELS]
 
     def get_input_devices(self) -> list[str]:
         try:
@@ -296,25 +296,17 @@ class WebViewAPI:
                 })
 
             try:
-                from lerolero.runtime_setup import download_model, _add_deps_to_path
-                _add_deps_to_path()
-                progress_cb("Baixando modelo...", 5)
+                from lerolero.runtime_setup import download_model
                 success = download_model(model_id, progress_cb)
-                if success:
-                    self._push_event("model_download_done", {
-                        "model": model_id, "success": True,
-                    })
-                else:
-                    self._push_event("model_download_done", {
-                        "model": model_id, "success": False,
-                        "error": "Download falhou",
-                    })
+                self._push_event("model_download_done", {
+                    "model": model_id, "success": success,
+                    "error": None if success else "Download falhou",
+                })
             except Exception as e:
                 self._push_event("model_download_done", {
                     "model": model_id, "success": False, "error": str(e),
                 })
 
-        import threading
         threading.Thread(target=_do_download, daemon=True).start()
         return {"status": "started"}
 

@@ -8,12 +8,15 @@ hiddenimports = [
     'pynput.keyboard._win32', 'pynput.mouse._win32',
     'webview',
     'clr_loader', 'pythonnet',
-    'timeit',
+    'onnx_asr',
+    'onnxruntime',
+    'onnxruntime.capi.onnxruntime_providers_openvino',
 ]
 
-# Bundle app code + webview + customtkinter (fallback)
-# pip NOT bundled — embedded Python downloads it at runtime
-for pkg in ('lerolero', 'customtkinter', 'webview', 'clr_loader', 'pythonnet'):
+# Bundle everything needed — onnxruntime-openvino and onnx-asr are NOT excluded.
+# The user gets a complete, offline-ready app on first install.
+for pkg in ('lerolero', 'webview', 'clr_loader', 'pythonnet',
+            'onnxruntime', 'onnx_asr', 'huggingface_hub'):
     try:
         tmp = collect_all(pkg)
         datas += tmp[0]; binaries += tmp[1]; hiddenimports += tmp[2]
@@ -29,17 +32,6 @@ if os.path.exists(web_dist):
 datas += [('src/lerolero/assets/icon.ico', 'lerolero/assets')]
 datas += [('src/lerolero/assets/icon.png', 'lerolero/assets')]
 
-# Exclude heavy ML deps — installed at runtime
-EXCLUDE_HEAVY = [
-    'torch', 'torchvision', 'torchaudio', 'torch._C', 'torch.cuda',
-    'caffe2', 'functorch',
-    'optimum', 'optimum_intel',
-    'transformers', 'tokenizers', 'safetensors',
-    'huggingface_hub', 'accelerate',
-    'onnxruntime', 'onnx',
-    'scipy', 'scipy.special',
-]
-
 a = Analysis(
     ['src\\lerolero\\__main__.py'],
     pathex=['src'],
@@ -49,7 +41,14 @@ a = Analysis(
     hookspath=[],
     hooksconfig={},
     runtime_hooks=['rthook_pythonnet.py'],
-    excludes=EXCLUDE_HEAVY,
+    excludes=[
+        # Explicitly exclude heavy packages we no longer use
+        'torch', 'torchvision', 'torchaudio',
+        'transformers', 'tokenizers', 'safetensors',
+        'optimum', 'optimum_intel', 'optimum.onnxruntime',
+        'accelerate', 'scipy',
+        'customtkinter',  # CTk fallback removed
+    ],
     noarchive=False,
     optimize=0,
 )

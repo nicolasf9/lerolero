@@ -41,8 +41,7 @@ jobs:
       - name: Install Python dependencies
         run: |
           pip install uv
-          uv sync --locked
-          uv pip install pyinstaller
+          uv sync --locked --all-groups
 
       - name: Build EXE with PyInstaller
         run: uv run pyinstaller lerolero.spec --noconfirm
@@ -93,8 +92,7 @@ jobs:
       - name: Install Python dependencies
         run: |
           pip install uv
-          uv sync --locked
-          uv pip install pyinstaller
+          uv sync --locked --all-groups
 
       - name: Build macOS app with PyInstaller
         run: |
@@ -103,15 +101,15 @@ jobs:
             --name "LeroLero" \
             --collect-all "lerolero" \
             --collect-all "webview" \
+            --collect-all "onnxruntime" \
+            --collect-all "onnx_asr" \
+            --collect-all "huggingface_hub" \
             --hidden-import "pynput.keyboard._darwin" \
             --hidden-import "pynput.mouse._darwin" \
             --paths "src" \
             --add-data "web/dist:lerolero/web_dist" \
             --add-data "src/lerolero/assets/icon.png:lerolero/assets" \
             --icon "src/lerolero/assets/icon.png" \
-            --exclude-module "torch" \
-            --exclude-module "transformers" \
-            --exclude-module "scipy" \
             "src/lerolero/__main__.py"
 
       - name: Create DMG

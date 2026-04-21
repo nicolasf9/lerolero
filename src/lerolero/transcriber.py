@@ -1,211 +1,131 @@
-"""Auto-detect GPU backend transcriber — NVIDIA (CUDA), AMD (DirectML), CPU."""
+"""Speech-to-text via ONNX Runtime — Parakeet TDT v3.
+
+Uses onnxruntime-openvino which provides:
+  - CPUExecutionProvider (always available)
+  - OpenVINOExecutionProvider (Intel GPUs / iGPU / NPU)
+  - CUDAExecutionProvider (NVIDIA, if CUDA libs present)
+  - DmlExecutionProvider (AMD, if DirectML available)
+
+Everything runs on ONNX — no PyTorch/transformers/export conversion.
+Model is pre-trained ONNX, loaded directly. No hanging.
+"""
 
 from __future__ import annotations
 
 import logging
-import os
 
 import numpy as np
 
 logger = logging.getLogger(__name__)
 
-# VAD tuning constants
-_VAD_FRAME_MS = 30
-_VAD_SAMPLE_RATE = 16000
-_VAD_FRAME_SAMPLES = int(_VAD_SAMPLE_RATE * _VAD_FRAME_MS / 1000)
-_VAD_MIN_SPEECH_FRAMES = 3
-_VAD_ENERGY_FLOOR = 1e-6
+# Default model alias recognized by onnx-asr. This downloads from HF on first use.
+DEFAULT_MODEL = "nemo-parakeet-tdt-0.6b-v3"
 
 
-def _detect_backend(device_pref: str) -> str:
-    """Auto-detect the best available backend.
+def detect_best_provider() -> str:
+    """Return the best available ONNX Runtime Execution Provider."""
+    try:
+        import onnxruntime as ort
+    except ImportError:
+        return "CPUExecutionProvider"
 
-    Returns one of: 'cuda', 'directml', 'cpu'.
-    """
-    pref = device_pref.lower().strip()
-
-    # Explicit CPU request
-    if pref == "cpu":
-        return "cpu"
-
-    # Try NVIDIA CUDA first (most common discrete GPU)
-    if pref in ("cuda", "nvidia", "gpu", "auto", ""):
-        try:
-            import torch
-            if torch.cuda.is_available():
-                name = torch.cuda.get_device_name(0)
-                logger.info("Detected NVIDIA GPU: %s — using CUDA backend", name)
-                return "cuda"
-        except ImportError:
-            pass
-
-    # Try AMD DirectML
-    if pref in ("directml", "amd", "gpu", "auto", ""):
-        try:
-            import onnxruntime as ort
-            providers = ort.get_available_providers()
-            if "DmlExecutionProvider" in providers:
-                logger.info("Detected AMD/DirectML GPU — using DirectML backend")
-                return "directml"
-        except ImportError:
-            pass
-
-    logger.info("No GPU acceleration found — using PyTorch CPU")
-    return "cpu"
+    providers = ort.get_available_providers()
+    # Preference order: CUDA > OpenVINO > DirectML > CPU
+    for ep in ("CUDAExecutionProvider", "OpenVINOExecutionProvider",
+               "DmlExecutionProvider", "CPUExecutionProvider"):
+        if ep in providers:
+            return ep
+    return "CPUExecutionProvider"
 
 
-def _build_cuda_pipeline(
-    model_id: str, compute_type: str, cache_dir: str | None,
-) -> object:
-    """Build a PyTorch CUDA pipeline (NVIDIA GPUs)."""
-    import torch
-    from transformers import AutoModelForSpeechSeq2Seq, AutoProcessor, pipeline
-
-    dtype = torch.float16 if compute_type in ("float16", "auto") else torch.float32
-
-    processor = AutoProcessor.from_pretrained(model_id, cache_dir=cache_dir)
-    model = AutoModelForSpeechSeq2Seq.from_pretrained(
-        model_id, torch_dtype=dtype, cache_dir=cache_dir,
-    ).to("cuda")
-
-    return pipeline(
-        "automatic-speech-recognition",
-        model=model,
-        tokenizer=processor.tokenizer,
-        feature_extractor=processor.feature_extractor,
-        chunk_length_s=30,
-        torch_dtype=dtype,
-        device="cuda",
-    )
+def _provider_label(provider: str) -> str:
+    """Short human-readable label."""
+    return {
+        "CUDAExecutionProvider": "cuda",
+        "OpenVINOExecutionProvider": "openvino",
+        "DmlExecutionProvider": "directml",
+        "CPUExecutionProvider": "cpu",
+    }.get(provider, "cpu")
 
 
-def _build_directml_pipeline(
-    model_id: str, cache_dir: str | None,
-) -> object:
-    """Build an ONNX Runtime DirectML pipeline (AMD GPUs)."""
-    from transformers import AutoProcessor, pipeline
-    from optimum.onnxruntime import ORTModelForSpeechSeq2Seq
-
-    processor = AutoProcessor.from_pretrained(model_id, cache_dir=cache_dir)
-    model = ORTModelForSpeechSeq2Seq.from_pretrained(
-        model_id, export=True, cache_dir=cache_dir,
-        provider="DmlExecutionProvider",
-    )
-    return pipeline(
-        "automatic-speech-recognition",
-        model=model,
-        tokenizer=processor.tokenizer,
-        feature_extractor=processor.feature_extractor,
-        chunk_length_s=30,
-    )
-
-
-def _build_cpu_pipeline(
-    model_id: str, cache_dir: str | None,
-) -> object:
-    """Build a plain PyTorch CPU pipeline (universal fallback)."""
-    from transformers import AutoModelForSpeechSeq2Seq, AutoProcessor, pipeline
-
-    processor = AutoProcessor.from_pretrained(model_id, cache_dir=cache_dir)
-    model = AutoModelForSpeechSeq2Seq.from_pretrained(model_id, cache_dir=cache_dir)
-
-    return pipeline(
-        "automatic-speech-recognition",
-        model=model,
-        tokenizer=processor.tokenizer,
-        feature_extractor=processor.feature_extractor,
-        chunk_length_s=30,
-        device="cpu",
-    )
+def _normalize_model_id(model_id: str) -> str:
+    """Map common full HF paths to onnx-asr's short aliases."""
+    aliases = {
+        "istupakov/parakeet-tdt-0.6b-v3-onnx": "nemo-parakeet-tdt-0.6b-v3",
+    }
+    return aliases.get(model_id, model_id)
 
 
 class Transcriber:
-    """Multi-GPU speech-to-text with auto-detection."""
+    """Fast speech-to-text via ONNX Runtime + Parakeet TDT v3."""
 
     def __init__(
         self,
-        model_id: str,
+        model_id: str = DEFAULT_MODEL,
         language: str | None = None,
         device: str = "auto",
-        compute_type: str = "auto",
-        download_root: str | None = None,
+        download_root: str | None = None,  # noqa: ARG002 (onnx-asr manages cache)
     ) -> None:
-        self.model_id = model_id
+        import onnx_asr
+
+        self.model_id = _normalize_model_id(model_id)
         self.language = language
-        self.download_root = download_root
-        self.compute_type = compute_type
 
-        # Auto-detect best backend
-        self.backend = _detect_backend(device)
-        logger.info("Transcriber using backend: %s for model: %s", self.backend, model_id)
+        provider = self._pick_provider(device)
+        self.backend = _provider_label(provider)
 
-        # Build the appropriate pipeline
-        if self.backend == "cuda":
-            self.pipe = _build_cuda_pipeline(model_id, compute_type, download_root)
-        elif self.backend == "directml":
-            self.pipe = _build_directml_pipeline(model_id, download_root)
-        else:
-            self.pipe = _build_cpu_pipeline(model_id, download_root)
+        providers = [provider]
+        if provider != "CPUExecutionProvider":
+            providers.append("CPUExecutionProvider")
+
+        logger.info("Transcriber: provider=%s model=%s", provider, self.model_id)
+        self.recognizer = onnx_asr.load_model(self.model_id, providers=providers)
 
     @staticmethod
-    def _has_speech(
-        audio_array: np.ndarray,
-        threshold_factor: float = 3.0,
-    ) -> bool:
-        """Detect speech using frame-level RMS energy analysis."""
-        audio = audio_array.flatten().astype(np.float32)
+    def _pick_provider(device_pref: str) -> str:
+        """Pick the best EP based on user preference."""
+        pref = device_pref.lower().strip()
+        try:
+            import onnxruntime as ort
+            available = set(ort.get_available_providers())
+        except ImportError:
+            return "CPUExecutionProvider"
 
-        if len(audio) < _VAD_FRAME_SAMPLES:
-            return False
-
-        n_frames = len(audio) // _VAD_FRAME_SAMPLES
-        frames = audio[: n_frames * _VAD_FRAME_SAMPLES].reshape(
-            n_frames, _VAD_FRAME_SAMPLES,
-        )
-
-        rms = np.sqrt(np.mean(frames**2, axis=1))
-        sorted_rms = np.sort(rms)
-        n_quiet = max(1, int(len(sorted_rms) * 20 / 100))
-        noise_floor = float(np.mean(sorted_rms[:n_quiet])) + _VAD_ENERGY_FLOOR
-        speech_threshold = noise_floor * threshold_factor
-        speech_frame_count = int(np.sum(rms > speech_threshold))
-
-        return speech_frame_count >= _VAD_MIN_SPEECH_FRAMES
-
-    @staticmethod
-    def detect_backend_info() -> str:
-        """Return a human-readable string about the detected backend."""
-        return _detect_backend("auto")
+        explicit = {
+            "cpu": "CPUExecutionProvider",
+            "cuda": "CUDAExecutionProvider",
+            "nvidia": "CUDAExecutionProvider",
+            "openvino": "OpenVINOExecutionProvider",
+            "intel": "OpenVINOExecutionProvider",
+            "directml": "DmlExecutionProvider",
+            "amd": "DmlExecutionProvider",
+        }
+        if pref in explicit and explicit[pref] in available:
+            return explicit[pref]
+        return detect_best_provider()
 
     def transcribe(
         self,
-        audio_input: str | np.ndarray,
-        initial_prompt: str = "",
-        task: str = "transcribe",
+        audio_input: "str | np.ndarray",
+        initial_prompt: str = "",  # noqa: ARG002 (Parakeet ignores prompts)
+        task: str = "transcribe",  # noqa: ARG002 (Parakeet only transcribes)
     ) -> str:
         """Transcribe audio to text."""
-        if isinstance(audio_input, np.ndarray) and not self._has_speech(audio_input):
-            return ""
-
-        generate_kwargs = {}
-        is_multilingual = not self.model_id.endswith(".en")
-        if is_multilingual:
-            lang = self.language
-            if lang and lang.lower() not in ("auto", "multilingual"):
-                generate_kwargs["language"] = lang
-            generate_kwargs["task"] = task
-
-        pipe_kwargs: dict = {"generate_kwargs": generate_kwargs}
-        if initial_prompt:
-            pipe_kwargs["initial_prompt"] = initial_prompt
-
         try:
-            result = self.pipe(audio_input, **pipe_kwargs)
-        except (ValueError, TypeError):
-            result = self.pipe(audio_input, generate_kwargs=generate_kwargs)
+            if isinstance(audio_input, np.ndarray):
+                audio = audio_input.flatten().astype(np.float32)
+                result = self.recognizer.recognize(audio, sample_rate=16000)
+            else:
+                result = self.recognizer.recognize(audio_input)
 
-        if isinstance(result, list):
-            return " ".join([r.get("text", "") for r in result]).strip()
-        if isinstance(result, dict):
-            return result.get("text", "").strip()
-        return ""
+            if isinstance(result, str):
+                return result.strip()
+            if hasattr(result, "text"):
+                return result.text.strip()
+            if isinstance(result, list) and result:
+                first = result[0]
+                return first.text.strip() if hasattr(first, "text") else str(first).strip()
+            return str(result).strip()
+        except Exception:
+            logger.exception("Transcription failed")
+            return ""
