@@ -48,7 +48,7 @@ dev = [
   "lefthook>=1.12.4",
   "pyinstaller>=6.0",
   "pytest>=8.4.2",
-  "pytest-cov>=7.0.0",
+  "pytest-cov>=7.1.0",
   "ruff>=0.13.0",
 ]
 
