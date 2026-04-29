@@ -29,7 +29,7 @@ dependencies = [
   "pynput>=1.8.1",
   "pyperclip>=1.11.0",
   "pystray>=0.19.5",
-  "sounddevice>=0.5.3",
+  "sounddevice>=0.5.5",
   # ASR engine + model loader — bundled (no runtime install).
   "onnx-asr>=0.3.0",
   "onnxruntime-openvino>=1.17.0; sys_platform != 'darwin'",
